@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-from flask_security import UserMixin, RoleMixin
+from flask_security import UserMixin
 from datetime import datetime
 
 db = SQLAlchemy()
