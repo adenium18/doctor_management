@@ -19,28 +19,10 @@ const routes = [
     { path: "/", component: Home, meta: { requiresAuth: true } },
     { path: "/app_info", component:appinfo},
     { path: "/user-login", component: Login },
-    { path: "/customer-signup", component: CustomerSignup },
-    { path: '/create-service', component: ServiceForm },
-    { path: '/service-remarks', component:ServiceRemarks},
-    { path: "/customer-profile", component: CustomerProfile, meta: { requiresAuth: true, customerOnly: true } },
-    { path: "/service-history", component: ServiceHistory, meta: { requiresAuth: true, customerOnly: true } },
-    { path: '/search-for-customer', component : SearchResultsforCustomer},
     
     
-
-    { path: "/professional-profile", component: ProfessionalProfile, meta: { requiresAuth: true, professionalOnly: true } },
-    { path: "/professional-home", component: ProfessionalHome, meta: { requiresAuth: true, professionalOnly: true } },
-    { path: '/search-for-prof', component : SearchResultsforProf},
     
-    // ✅ Admin-only Service Management Routes
-    { path: "/manage-services", component: AdminHome, meta: { requiresAuth: true, adminOnly: true } },
-    { path: "/update-service", component: UpdateServiceForm, meta: { requiresAuth: true, adminOnly: true } },
-    { path: "/all-service-request", component: AllServiceRequest, meta: { requiresAuth: true, adminOnly: true } },
-    { path: "/users", component: Users, meta: { requiresAuth: true, adminOnly: true } },
-    { path: '/search', component: SearchResults },
-    { path: '/service-summary', component: Statistical_summary, props: true }
-
-    
+  
    
     
 ];

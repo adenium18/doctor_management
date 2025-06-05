@@ -1,7 +1,7 @@
 from flask import Flask, redirect
 from flask_login import login_required
 from backend.config import LocalDevelopmentConfig
-from backend.models import db, User,Complaints,Patient
+from backend.models import db, User,Complaints,Patient,Role
 from flask_security import Security, SQLAlchemyUserDatastore, auth_required
 from flask_caching import Cache
 #from backend.celery.celery_factory import celery_init_app
@@ -20,7 +20,7 @@ def createApp():
     cache = Cache(app)
 
     #flask security
-    datastore = SQLAlchemyUserDatastore(db, User)
+    datastore = SQLAlchemyUserDatastore(db, User, Role)
     app.cache = cache
 
     app.security = Security(app, datastore=datastore, register_blueprint=False)
@@ -36,8 +36,8 @@ app = createApp()
 
 import backend.create_initial_data
 import backend.routes
-celery_app = celery_init_app(app)
-import backend.celery.celery_schedule
+#celery_app = celery_init_app(app)
+#import backend.celery.celery_schedule
 excel.init_excel(app)
 
 if (__name__ == '__main__'):

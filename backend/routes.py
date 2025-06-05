@@ -12,7 +12,7 @@ from backend.models import User, db, Patient, Complaints
 datastore= app.security.datastore
 cache=app.cache
 
-@app.route('/api/patients', method=["GET","POST"])
+@app.route('/api/patients', methods=["GET","POST"])
 
 def manage_patients():
     if request.method=="GET":
@@ -53,7 +53,7 @@ def manage_patients():
         return jsonify({"message":"patient profile created successfully"}),201
     
 
-@app.route("/api/update/patient/<int:id>", method=["GET","POST"])
+@app.route("/api/update/patient/<int:id>", methods=["GET","POST"])
 def update_patient(id):
     patient= Patient.query.get_or_404(id)
 
@@ -93,3 +93,66 @@ def delete_patient(id):
     db.session.delete(patient)
     db.session.commit()
     return jsonify({"message": "patient deleted successfully"})
+
+
+@app.get("/")
+def home():
+    return render_template("index.html")
+
+
+@app.route("/user-login", methods=["POST"])
+def user_login():
+    data = request.json
+    email = data.get("email")
+    password = data.get("password")
+
+    user = User.query.filter_by(email=email).first()
+    if not user or not verify_password(password, user.password):
+        return jsonify({"message": "Invalid email or password"}), 401
+
+    # Ensure the user is active
+    if hasattr(user, "professional") and user.professional and not user.professional.active:
+        return jsonify({"message": "Your account is not yet approved. Please wait for admin approval."}), 403
+
+
+    
+    # ✅ Check if user is a blocked customer
+    if hasattr(user, "customer") and user.customer and not user.customer.active:
+        return jsonify({"message": "Your account is blocked"}), 403
+
+
+
+    # Generate token using Flask-Security
+    token = user.get_auth_token()
+
+    # Allow frontend to access the token
+    #response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
+    #response.headers["Access-Control-Allow-Credentials"] = "true"
+    
+    return jsonify({
+        "message": "Login successful",
+        "token": token,
+        "user_id": user.id,  # ✅ Fix: Include user_id
+
+        "full_name": user.email.split('@')[0],  # Extract name from email
+        "role": "admin" if any(role.name == "admin" for role in user.roles) else
+                "professional" if user.professional else "customer"
+    }), 200
+
+@app.route("/user-details", methods=["GET"])
+@auth_required("token")
+def get_user_details():
+    user = current_user
+    user_data = {
+        "id": user.id,
+        "email": user.email,
+        "role": "admin" if any(role.name == "admin" for role in user.roles) else
+                "professional" if user.professional else "customer",}
+    
+    if hasattr(user, "customer") and user.customer:
+        return jsonify({"email": user.email, "full_name": user.customer.full_name, "address":user.customer.address, "pincode": user.customer.pincode,"role": "customer"})
+    if hasattr(user, "professional") and user.professional:
+        return jsonify({"email":user.email, "full_name": user.professional.full_name, "address":user.professional.address, "pincode": user.professional.pincode, "role": "professional"})
+    if any(role.name == "admin" for role in user.roles):
+        return jsonify({"full_name": user.email, "role": "admin"})
+    return jsonify({"message": "User not found"}), 404
