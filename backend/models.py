@@ -18,7 +18,7 @@ class Patient(db.Model):
     address = db.Column(db.String(255))
     pincode = db.Column(db.Integer())
     dob = db.Column(db.String(),nullable=False)
-    age = db.column(db.Integer(),nullable=False)
+    age = db.Column(db.Integer(),nullable=False)
     weight = db.Column(db.Integer())
     sex = db.Column(db.String())
     phone = db.Column(db.String(), unique=True)
