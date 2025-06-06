@@ -19,4 +19,24 @@ with app.app_context():
         )
         db.session.commit()
 
+    doctor = False
+    if not userdatastore.find_user(email="doctor@abc.in"):
+        DOC_user = userdatastore.create_user(
+            email="doctor@abc.in",
+            password=hash_password("1234"),
+            roles=["doctor"],
+        )
+        doctor = True
+
+    db.session.commit()
+
+    if doctor:
+        doctor = doctor(
+            full_name="Kumar SV",
+            address="Mumbai",
+            degree="MBBS",
+            user_id=DOC_user.id,
+            active=True,
+        )
+        db.session.add(doctor)
     db.session.commit()

@@ -7,7 +7,7 @@ from flask_restful import marshal, fields
 import flask_excel as excel
 from celery.result import AsyncResult
 #from backend.celery.tasks import add, create_csv
-from backend.models import User, db, Patient, Complaints
+from backend.models import User, db, Patient, Complaints, Doctor
 
 datastore= app.security.datastore
 cache=app.cache
@@ -110,14 +110,9 @@ def user_login():
     if not user or not verify_password(password, user.password):
         return jsonify({"message": "Invalid email or password"}), 401
 
-    # Ensure the user is active
-    if hasattr(user, "professional") and user.professional and not user.professional.active:
-        return jsonify({"message": "Your account is not yet approved. Please wait for admin approval."}), 403
-
-
     
-    # ✅ Check if user is a blocked customer
-    if hasattr(user, "customer") and user.customer and not user.customer.active:
+    # ✅ Check if user is a blocked doctor
+    if hasattr(user, "doctor") and user.doctor and not user.doctor.active:
         return jsonify({"message": "Your account is blocked"}), 403
 
 
@@ -135,24 +130,40 @@ def user_login():
         "user_id": user.id,  # ✅ Fix: Include user_id
 
         "full_name": user.email.split('@')[0],  # Extract name from email
-        "role": "admin" if any(role.name == "admin" for role in user.roles) else
-                "professional" if user.professional else "customer"
+        "role": "admin" if any(role.name == "admin" for role in user.roles) else "doctor"
     }), 200
 
 @app.route("/user-details", methods=["GET"])
 @auth_required("token")
 def get_user_details():
     user = current_user
-    user_data = {
+    '''user_data = {
         "id": user.id,
         "email": user.email,
-        "role": "admin" if any(role.name == "admin" for role in user.roles) else
-                "professional" if user.professional else "customer",}
+        "role": "admin" if any(role.name == "admin" for role in user.roles) else "doctor",}
+    '''
+    if hasattr(user, "doctor") and user.doctor:
+        return jsonify({"full_name": user.doctor.full_name, "address":user.doctor.address, "degree": user.doctor.degree,"role": "doctor"})
     
-    if hasattr(user, "customer") and user.customer:
-        return jsonify({"email": user.email, "full_name": user.customer.full_name, "address":user.customer.address, "pincode": user.customer.pincode,"role": "customer"})
-    if hasattr(user, "professional") and user.professional:
-        return jsonify({"email":user.email, "full_name": user.professional.full_name, "address":user.professional.address, "pincode": user.professional.pincode, "role": "professional"})
     if any(role.name == "admin" for role in user.roles):
         return jsonify({"full_name": user.email, "role": "admin"})
     return jsonify({"message": "User not found"}), 404
+
+
+   
+@app.route("/api/doctors", methods=["GET"])
+@auth_required("token")
+@roles_required("admin")
+def get_doctors():
+    doctors = Doctor.query.all()
+    
+    if not doctors:
+        return jsonify([])  # ✅ Return empty list instead of 404
+    
+    return jsonify([{
+        "id": doctor.id,
+        "full_name": doctor.full_name,
+        "address": doctor.address,
+        "degree": doctor.degree,
+        "active":doctor.active,
+    } for doctor in doctors])

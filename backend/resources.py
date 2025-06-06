@@ -2,7 +2,7 @@ from socket import timeout
 from flask import current_app as app, jsonify, request
 from flask_restful import Resource, Api, reqparse, marshal, fields
 from flask_security import auth_required, roles_required, current_user, hash_password
-from .models import Patient, User,db, Complaints
+from .models import Patient, User,db, Complaints,Doctor
 from werkzeug.security import generate_password_hash
 from datetime import datetime
 
@@ -10,6 +10,10 @@ from datetime import datetime
 datastore = app.security.datastore
 cache = app.cache
 api = Api(prefix="/api")
+
+
+
+
 
 parser1 = reqparse.RequestParser()
 
@@ -116,4 +120,106 @@ class  UpdatePatient(Resource):
         return {"message":"Patient Info updated"}
 
 
+
+
+
+
+#============================create new doctor========================
+
+parser2=reqparse.RequestParser()
+
+parser2.add_argument(
+    'email',type=str, help='Email required and should be a string', required=True
+)
+
+parser2.add_argument(
+    "password", type=str, help="password required and should be a string", required=True
+)
+
+parser2.add_argument(
+    "full_name", type=str, help="full name is required and should be A STRING", required=True
+)
+
+parser2.add_argument(
+    "address", type=str, help="required with pincode"
+)
+
+parser2.add_argument(
+    "degree", type=str, help="reuired and should be a string", required=True
+)
+
+doctor_fields={
+    "id": fields.Integer,
+    "full_name": fields.String,
+    "address": fields.String,
+    "degree": fields.String,
+    "user_id": fields.Integer,
+    "active":fields.Boolean,
+}
+
+
+class DoctorsAPI(Resource):
+    @auth_required("token")
+    @roles_required("admin")
+    def get(self):
+        doctors = Doctor.query.all()
+        if len(doctors) == 0:
+            return {"message": "No User Found"}, 404
+        return marshal(doctors, doctor_fields)
+
+    def post(self):
+        args = parser2.parse_args()
+        datastore.create_user(
+            email=args.email, password=hash_password(args.password), roles=["doctor"]
+        )
+        doctor = Doctor(
+            full_name=args.full_name,
+            address=args.address,
+            degree=args.degree,
+            user_id=User.query.filter_by(email=args.email).all()[0].id,
+            active=True,
+        )
+        db.session.add(doctor)
+        db.session.commit()
+        return {"message": "New Doctor Added"}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 api.add_resource(PatientAPI,"/patients")
+api.add_resource(Doctor,"/doctors")

@@ -19,8 +19,7 @@ export default {
                     </div>
                 </form>
                 <div class="mt-3 text-center">
-                    <router-link to="/customer-signup" class="btn btn-link">Register as Customer</router-link>
-                    <router-link to="/service-professional-signup" class="btn btn-link">Register as Professional</router-link>
+                    <router-link to="/doctor-signup" class="btn btn-link">sign up for New Account</router-link>
                 </div>
             </div>
         </div>

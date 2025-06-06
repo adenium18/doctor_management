@@ -1,7 +1,7 @@
 from flask import Flask, redirect
 from flask_login import login_required
 from backend.config import LocalDevelopmentConfig
-from backend.models import db, User,Complaints,Patient,Role
+from backend.models import db, User,Complaints,Patient,Role,Doctor
 from flask_security import Security, SQLAlchemyUserDatastore, auth_required
 from flask_caching import Cache
 #from backend.celery.celery_factory import celery_init_app

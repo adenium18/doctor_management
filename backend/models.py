@@ -25,6 +25,15 @@ class User(db.Model, UserMixin):
         "Role", secondary="roles_users", backref=db.backref("users", lazy="dynamic")
     )
 
+class Doctor(db.Model):
+    id = db.Column(db.Integer(), primary_key=True)
+    full_name = db.Column(db.String(255))
+    address = db.Column(db.String(255))
+    degree = db.Column(db.String())
+    user_id = db.Column(db.Integer(), db.ForeignKey("user.id"), unique=True)
+    user = db.relationship("User", backref=db.backref("doctor", uselist=False))
+    active = db.Column(db.Boolean, default=True)
+
 class Patient(db.Model):
     id = db.Column(db.Integer(), primary_key=True)
     full_name = db.Column(db.String(255), nullable=False)

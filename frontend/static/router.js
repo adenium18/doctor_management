@@ -5,7 +5,7 @@ import AdminHome from "./components/AdminHome.js";
 import AllComplaints from "./components/AllComplaints.js";
 import PatientProfile from "./components/PatientProfile.js";
 import PatientHistory from "./components/PatientHistory.js";
-//import CustomerSignup from "./components/CustomerSignup.js";
+import DoctorSignup from "./components/DoctorSignup.js";
 //import ServiceProfessionalSignup from "./components/ServiceProfessionalSignup.js";
 //import Users from "./components/Users.js";
 //import ServiceForm from "./components/ServiceForm.js";
@@ -18,13 +18,8 @@ import PatientHistory from "./components/PatientHistory.js";
 const routes = [
     { path: "/", component: Home, meta: { requiresAuth: true } },
     { path: "/app_info", component:appinfo},
-    { path: "/user-login", component: Login },
-    
-    
-    
-  
-   
-    
+    { path: "/user-login", component: Login },    
+    { path: "/doctor-signup", component: DoctorSignup}
 ];
 
 const router = new VueRouter({
