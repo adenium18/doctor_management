@@ -41,21 +41,19 @@ parser1.add_argument(
     "dob",
     type=str,
     help="date of birth is required",
-    required=True,
 )
 
 parser1.add_argument(
     "weight",
     type=int,
     help="weight is required and should be a string",
-    required=True,
 )
 
 parser1.add_argument(
     "pincode",
     type=str,
     help="pincode is required and should be a string",
-    required=True,
+   
 )
 parser1.add_argument(
     "phone",
