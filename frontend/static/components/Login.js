@@ -56,6 +56,13 @@ export default {
                         this.$router.push("/");  
                         
                     }
+                    else if (data.role === "doctor") {
+                        this.$router.push("/");  
+                        
+                    }
+
+                    
+                    
                 } else {
                     this.error = data.message || "Invalid credentials";
                 }

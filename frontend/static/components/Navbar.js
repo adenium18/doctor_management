@@ -2,7 +2,7 @@ export default {
     template: `
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container-fluid">
-            <a class="navbar-brand text-primary" href="/">Household Services AtoZ</a>
+            <a class="navbar-brand text-primary" href="/">Welcome to Dr. A-to-Z 🏥</a>
             <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -31,8 +31,8 @@ export default {
                         <form @submit.prevent="onSearch" class="d-flex align-items-center">
                             <input type="text" class="form-control me-2" v-model="searchQuery" placeholder="Search..." aria-label="Search">
                                 <select class="form-select me-2" v-model="searchType" required>
-                                    <option value="professionals">Professionals</option>
-                                    <option value="customers">Customers</option>
+                                    
+                                    <option value="doctors">doctors</option>
                                     <option value="services">Services</option>
                                     <option value="service_requests">Service Requests</option>
                                 </select>
@@ -41,44 +41,31 @@ export default {
                     </li>
 
 
-                    <!-- Customer Navigation -->
+                    <!-- doctor Navigation -->
                     
-                    <li class="nav-item" v-if="role === 'customer'">
-                        <router-link class="nav-link" to="/service-history">Service History</router-link>
+                    <li class="nav-item" v-if="role === 'doctor'">
+                        <router-link class="nav-link" to="/patients">All Patients</router-link>
                     </li>
-                    <li class="nav-item" v-if="role === 'customer'">
-                    <form @submit.prevent="onSearchforcustomer" class="d-flex align-items-center">
-                        <input type="text"  class="form-control me-2" v-model="searchQuery" placeholder="Search Professionals" />
+                    <li class="nav-item" v-if="role === 'doctor'">
+                        <router-link class="nav-link" to="/patient_history">Patient History</router-link>
+                    </li>
+                    <li class="nav-item" v-if="role === 'doctor'">
+                        <router-link class="nav-link" to="/all_complaints">All complaints</router-link>
+                    </li>
+
+                    <li class="nav-item" v-if="role === 'doctor'">
+                    <form @submit.prevent="onSearchfordoctor" class="d-flex align-items-center">
+                        <input type="text"  class="form-control me-2" v-model="searchQuery" placeholder="Search patient info" />
                         <select class="form-select me-2" v-model="searchType" required>
-                            <option value="professionals">Professionals</option>
-                            <option value="professionals_pincode">Availability by Pincode</option>
-                            <option value="services">Services</option>
-                            <option value="service_prof">Professionals Available by Services</option>
+                            <option value="professionals">Patient name</option>
+                            <option value="professionals_pincode">Pincode</option>
+                            <option value="services">complaints</option>
                         </select>
                         <button type="submit" class="btn btn-info">Search</button>
                     </form>
                     </li>
                 
-                    <!-- Professional Navigation -->
-                    
-                    <li class="nav-item" v-if="role === 'professional'">
-                        <router-link class="nav-link" to="/professional-home">Dashboard</router-link>
-                    </li>
-
-                    
-                    <!-- Search Form for Professionals -->
-                    <li class="nav-item" v-if="role === 'professional'">
-                        <form @submit.prevent="onSearchforprof" class="d-flex align-items-center">
-                            <input type="text"  class="form-control me-2" v-model="searchQuery" placeholder="Search service requests" />
-                            <select class="form-select me-2" v-model="searchType" required>
-                                <option value="services">Services</option>
-                                <option value="service_requests">Service Requests</option>
-                                <option value="service_status">Search by Service Status</option>
-                            </select>
-                            <button type="submit" class="btn btn-info">Search</button>
-                        </form>
-                    </li>
-                </ul>
+                </ul> 
 
                 <!-- Authentication Controls -->
                 <ul class="navbar-nav ml-auto">
@@ -86,21 +73,17 @@ export default {
                         <router-link class="nav-link" to="/user-login">Login</router-link>
                     </li>
                     <li class="nav-item" v-if="!isAuthenticated">
-                        <router-link class="nav-link" to="/customer-signup">New customer?</router-link>
+                        <router-link class="nav-link" to="/doctor-signup">New doctor?</router-link>
                     </li>
                     <li class="nav-item" v-if="!isAuthenticated">
                         <router-link class="nav-link" to="/service-professional-signup">New Professional?</router-link>
                     </li>
 
 
-                    <li class="nav-item" v-if="role === 'professional'">
-                        <router-link class="nav-link" to="/professional-profile">
-                            <img src="/static/components/images/user.png" width="30" height="30">
-                        </router-link>
-                    </li>
+                    
 
-                    <li class="nav-item" v-if="role === 'customer'">
-                        <router-link class="nav-link" to="/customer-profile" >
+                    <li class="nav-item" v-if="role === 'doctor'">
+                        <router-link class="nav-link" to="/doctor-profile" >
                             <img src="/static/components/images/user.png" width="30" height="30">
                         </router-link>
                     </li>
@@ -145,14 +128,14 @@ export default {
             });
         },
 
-        onSearchforcustomer() {
+        onSearchfordoctor() {
             if (!this.searchQuery || !this.searchType) {
                 alert("Please enter a search query.");
                 return;
             }
             
             this.$router.push({
-                path: '/search-for-customer',
+                path: '/search-for-doctor',
                 query: {
                     type: this.searchType,
                     query: this.searchQuery

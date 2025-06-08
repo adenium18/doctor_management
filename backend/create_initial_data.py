@@ -1,5 +1,5 @@
 from flask_security import SQLAlchemyUserDatastore, hash_password
-from backend.models import db
+from backend.models import db,Doctor
 
 from flask import current_app as app
 
@@ -31,7 +31,7 @@ with app.app_context():
     db.session.commit()
 
     if doctor:
-        doctor = doctor(
+        doctor = Doctor(
             full_name="Kumar SV",
             address="Mumbai",
             degree="MBBS",

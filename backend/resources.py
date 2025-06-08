@@ -2,9 +2,10 @@ from socket import timeout
 from flask import current_app as app, jsonify, request
 from flask_restful import Resource, Api, reqparse, marshal, fields
 from flask_security import auth_required, roles_required, current_user, hash_password
-from .models import Patient, User,db, Complaints,Doctor
+from .models import Patient, User,db, Casepaper,Doctor
 from werkzeug.security import generate_password_hash
-from datetime import datetime
+from datetime import datetime,date         # Optional: Calculate age from DOB
+
 
 
 datastore = app.security.datastore
@@ -25,7 +26,7 @@ parser1.add_argument(
 )
 
 parser1.add_argument(
-    "Address",
+    "address",
     type=str,
     help="Address is required and should be a string",
 )
@@ -57,7 +58,7 @@ parser1.add_argument(
     required=True,
 )
 parser1.add_argument(
-    "phone_number",
+    "phone",
     type=str,
     help="contact number is required and should be a string",
 )
@@ -72,7 +73,7 @@ parser1.add_argument(
 patient_fields = {
     "id": fields.Integer,
     "full_name": fields.String,
-    "pincode": fields.Integer,
+    "pincode": fields.String,
     "address": fields.String,
     "dob": fields.String,
     "age":fields.Integer,
@@ -80,12 +81,17 @@ patient_fields = {
     "sex":fields.String,
     "phone":fields.String,
     "date_of_arrival":fields.String,
+    "active": fields.Boolean,
 }
 
 class PatientAPI(Resource):
     def get(self):
         patients = Patient.query.all()
-        return jsonify([{
+        if not patients:
+            return {"message": "No patient records found"}, 200
+        return marshal(patients, patient_fields), 200
+        
+        '''return jsonify([{
             "id" : patient.id,
             "full_name": patient.full_name,
             "address" : patient.address,
@@ -96,8 +102,37 @@ class PatientAPI(Resource):
             "sex" : patient.sex,
             "phone" : patient.phone,
             "date_of_arrival" : patient.date_of_arrival,
-        } for patient in patients])
-    
+        
+        } for patient in patients])'''
+
+    def post(self):
+        args = parser1.parse_args()
+
+
+
+        try:
+            dob = datetime.strptime(args.dob, "%Y-%m-%d").date()
+            today = date.today()
+            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        except Exception as e:
+            return {"message": f"Invalid date format for dob. Use YYYY-MM-DD. Error: {str(e)}"}, 400
+
+        new_patient = Patient(
+            full_name=args.full_name,
+            address=args.address,
+            pincode=args.pincode,
+            dob=args.dob,
+            age=age,
+            weight=args.weight,
+            sex=args.sex,
+            phone=args.phone,
+            date_of_arrival=args.date_of_arrival
+        )
+
+        db.session.add(new_patient)
+        db.session.commit()
+
+        return {"message": "Patient profile created successfully", "patient_id": new_patient.id}, 201
 
 class  UpdatePatient(Resource):
     def get(self,id):
@@ -126,100 +161,112 @@ class  UpdatePatient(Resource):
 
 #============================create new doctor========================
 
-parser2=reqparse.RequestParser()
+parser2 = reqparse.RequestParser()
 
 parser2.add_argument(
-    'email',type=str, help='Email required and should be a string', required=True
+    'email', type=str, help='Email required and should be a string', required=True
 )
 
 parser2.add_argument(
-    "password", type=str, help="password required and should be a string", required=True
+    "password", type=str, help="Password required and should be a string", required=True
 )
 
 parser2.add_argument(
-    "full_name", type=str, help="full name is required and should be A STRING", required=True
+    "full_name", type=str, help="Full name is required and should be a string", required=True
 )
 
 parser2.add_argument(
-    "address", type=str, help="required with pincode"
+    "address", type=str, help="Address required with pincode"
 )
 
 parser2.add_argument(
-    "degree", type=str, help="reuired and should be a string", required=True
+    "degree", type=str, help="Degree is required and should be a string", required=True
 )
 
-doctor_fields={
+# Output format for marshaling doctor data
+doctor_fields = {
     "id": fields.Integer,
     "full_name": fields.String,
     "address": fields.String,
     "degree": fields.String,
     "user_id": fields.Integer,
-    "active":fields.Boolean,
+    "active": fields.Boolean,
 }
 
 
 class DoctorsAPI(Resource):
     @auth_required("token")
-    @roles_required("admin")
+    
     def get(self):
         doctors = Doctor.query.all()
-        if len(doctors) == 0:
-            return {"message": "No User Found"}, 404
-        return marshal(doctors, doctor_fields)
+        if not doctors:
+            return {"doctors": []}, 200  # ✅ Return empty list instead of 404
+        return marshal(doctors, doctor_fields), 200
 
+  
     def post(self):
         args = parser2.parse_args()
-        datastore.create_user(
-            email=args.email, password=hash_password(args.password), roles=["doctor"]
-        )
+
+        # Create user
+        try:
+            datastore.create_user(
+                email=args.email,
+                password=hash_password(args.password),
+                roles=["doctor"]
+            )
+        except Exception as e:
+            return {"message": "User creation failed", "error": str(e)}, 400
+
+        user = User.query.filter_by(email=args.email).first()
+        if not user:
+            return {"message": "User not found after creation"}, 500
+
+        # Create doctor
         doctor = Doctor(
             full_name=args.full_name,
             address=args.address,
             degree=args.degree,
-            user_id=User.query.filter_by(email=args.email).all()[0].id,
+            user_id=user.id,
             active=True,
         )
-        db.session.add(doctor)
+
+        try:
+            db.session.add(doctor)
+            db.session.commit()
+            return {"message": "New Doctor Added"}, 201
+        except Exception as e:
+            db.session.rollback()
+            return {"message": "Failed to add doctor", "error": str(e)}, 500
+
+
+
+# Request parser for casepaper creation
+casepaper_parser = reqparse.RequestParser()
+casepaper_parser.add_argument("patient_id", type=int, required=True, help="Patient ID is required")
+casepaper_parser.add_argument("doctor_id", type=int, required=True, help="Doctor ID is required")
+casepaper_parser.add_argument("symptoms", type=str, required=True, help="Symptoms are required")
+casepaper_parser.add_argument("diagnosis", type=str, required=True, help="Diagnosis is required")
+casepaper_parser.add_argument("prescription", type=str, required=True, help="Prescription is required")
+
+
+class CasepaperAPI(Resource):
+    @roles_required("doctor")
+    @auth_required("token")
+    def post(self):
+        args = casepaper_parser.parse_args()
+        new_casepaper = Casepaper(
+            patient_id=args["patient_id"],
+            doctor_id=args["doctor_id"],
+            symptoms=args["symptoms"],
+            diagnosis=args["diagnosis"],
+            prescription=args["prescription"]
+        )
+        db.session.add(new_casepaper)
         db.session.commit()
-        return {"message": "New Doctor Added"}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        return {"message": "Casepaper created successfully"}, 201
 
 
 api.add_resource(PatientAPI,"/patients")
-api.add_resource(Doctor,"/doctors")
+api.add_resource(DoctorsAPI,"/doctors")
+api.add_resource(CasepaperAPI,"/casepaper")
