@@ -3,30 +3,51 @@ import Patients from "./Patients.js";
 export default {
   template: `
   <div class="container-fluid">
-    <h1 class="text-center fw-bold">Welcome {{user.full_name}} to Dr. A-to-Z 🏥</h1>
+    <h1 class="text-center fw-bold">Welcome {{ user.full_name }} to Dr. A-to-Z 🏥</h1>
     <hr class="custom-hr">
-    <h3 class="text-center text-success fw-bold">Manage Patient Casepapers with Ease</h3>
 
-    <div class="container my-4">
-      <div class="card mb-4">
+    <div class="alert alert-info text-center">
+      <h5>👨‍⚕️ Doctor's Dashboard</h5>
+      <p>Search for an existing patient to view or add a new casepaper. If no match is found, you can create a new patient record and attach the casepaper.</p>
+    </div>
+
+    <div class="container mb-4">
+      <div class="input-group mb-3">
+        <input v-model="form.full_name" type="text" class="form-control" placeholder="Enter patient name">
+        <button class="btn btn-outline-primary" @click="searchPatient">Search</button>
+      </div>
+
+      <div v-if="foundPatient" class="alert alert-success">
+        Patient <strong>{{ foundPatient.full_name }}</strong> found.
+        <br>
+        <strong>dob:</strong> {{ foundPatient.dob }} | <strong>Gender:</strong> {{ foundPatient.sex }}
+        <br>
+        <button class="btn btn-sm btn-success mt-2" @click="showForm = true">Add Casepaper</button>
+      </div>
+
+      <div v-if="patientNotFound" class="alert alert-warning">
+        No matching patient found. You can create a new one.
+        <button class="btn btn-sm btn-outline-primary mt-2" @click="showForm = true">Create New Patient & Casepaper</button>
+      </div>
+    </div>
+
+    <div v-if="showForm" class="container mb-5">
+      <div class="card">
         <div class="card-body">
-          <h4 class="card-title">New Casepaper Entry</h4>
+          <h4 class="card-title">Casepaper Entry</h4>
           <form @submit.prevent="handleSubmit">
             <div class="row mb-3">
               <div class="col-md-4">
-                <label for="patientName" class="form-label">Patient Name</label>
-                <div class="input-group">
-                  <input type="text" id="patientName" class="form-control" v-model="form.full_name" placeholder="Enter patient name">
-                  <button class="btn btn-outline-primary" @click.prevent="searchPatient">Search</button>
-                </div>
+                <label class="form-label">Patient Name</label>
+                <input type="text" class="form-control" v-model="form.full_name" :readonly="!!foundPatient">
               </div>
               <div class="col-md-4">
-                <label for="age" class="form-label">Age</label>
-                <input type="number" id="age" class="form-control" v-model="form.age" placeholder="Age">
+                <label class="form-label">dob</label>
+                <input type="date" class="form-control" v-model="form.dob">
               </div>
               <div class="col-md-4">
-                <label for="gender" class="form-label">Gender</label>
-                <select id="gender" class="form-select" v-model="form.sex">
+                <label class="form-label">Gender</label>
+                <select class="form-select" v-model="form.sex">
                   <option selected disabled>Select</option>
                   <option>Male</option>
                   <option>Female</option>
@@ -36,47 +57,30 @@ export default {
             </div>
 
             <div class="mb-3">
-              <label for="symptoms" class="form-label">Symptoms</label>
-              <textarea id="symptoms" class="form-control" rows="2" v-model="form.symptoms" placeholder="Describe symptoms"></textarea>
+              <label class="form-label">Symptoms</label>
+              <textarea class="form-control" rows="2" v-model="form.symptoms" placeholder="Describe symptoms"></textarea>
             </div>
 
             <div class="mb-3">
-              <label for="diagnosis" class="form-label">Diagnosis</label>
-              <textarea id="diagnosis" class="form-control" rows="2" v-model="form.diagnosis" placeholder="Enter diagnosis details"></textarea>
+              <label class="form-label">Diagnosis</label>
+              <textarea class="form-control" rows="2" v-model="form.diagnosis" placeholder="Enter diagnosis"></textarea>
             </div>
 
             <div class="mb-3">
-              <label for="prescription" class="form-label">Prescription</label>
-              <textarea id="prescription" class="form-control" rows="2" v-model="form.prescription" placeholder="Enter prescribed medication"></textarea>
+              <label class="form-label">Prescription</label>
+              <textarea class="form-control" rows="2" v-model="form.prescription" placeholder="Enter prescription"></textarea>
             </div>
 
             <button type="submit" class="btn btn-primary">Save Casepaper</button>
           </form>
         </div>
       </div>
-
-      <div class="card">
-        <div class="card-body">
-          <h4 class="card-title">Patient Records</h4>
-          <p class="text-muted">Recent entries will be listed here.</p>
-          <ul class="list-group">
-            <li class="list-group-item">
-              <strong>John Doe</strong> — Fever & Cough — <em>Paracetamol 500mg</em>
-            </li>
-            <li class="list-group-item">
-              <strong>Priya Sharma</strong> — Headache — <em>Ibuprofen 400mg</em>
-            </li>
-          </ul>
-        </div>
-      </div>
     </div>
 
     <div class="card text-center mt-4">
-      <div class="card-title">
-        <h2>Contact Support</h2>
-      </div>
+      <div class="card-title"><h2>Contact Support</h2></div>
       <div class="card-text">
-        <p>If you have any issues or need assistance, contact us at <a href="mailto:medsupport@atozapp.com">medsupport@atozapp.com</a>.</p>
+        <p>If you need assistance, email us at <a href="mailto:medsupport@atozapp.com">medsupport@atozapp.com</a>.</p>
       </div>
     </div>
   </div>
@@ -89,9 +93,11 @@ export default {
       token: localStorage.getItem("auth-token"),
       role: localStorage.getItem("role"),
       foundPatient: null,
+      patientNotFound: false,
+      showForm: false,
       form: {
         full_name: '',
-        age: '',
+        dob: '',
         sex: '',
         symptoms: '',
         diagnosis: '',
@@ -99,12 +105,13 @@ export default {
       }
     };
   },
-  components: {
-    Patients,
-  },
+
+  components: { Patients },
+
   async mounted() {
     await this.fetchpatients();
   },
+
   methods: {
     async fetchpatients() {
       try {
@@ -112,15 +119,17 @@ export default {
           headers: { "Authentication-Token": this.token }
         });
         const data = await res.json();
-        if (res.ok) {
-          this.patients = data;
-        }
+        if (res.ok) this.patients = data;
       } catch (error) {
         console.error("Error fetching patients:", error);
       }
     },
 
     async searchPatient() {
+      this.foundPatient = null;
+      this.patientNotFound = false;
+      this.showForm = false;
+
       try {
         const res = await fetch(`/api/patient/search?query=${this.form.full_name}`, {
           headers: { "Authentication-Token": this.token }
@@ -128,16 +137,11 @@ export default {
         const data = await res.json();
 
         if (data && data.id) {
-          if (confirm(`Patient '${data.full_name}' already exists. Do you want to add casepaper to this profile?`)) {
-            this.foundPatient = data;
-            this.form.age = data.age;
-            this.form.sex = data.sex;
-          } else {
-            this.foundPatient = null;
-          }
+          this.foundPatient = data;
+          this.form.dob = data.dob;
+          this.form.sex = data.sex;
         } else {
-          alert("No matching patient found. A new one will be created upon saving.");
-          this.foundPatient = null;
+          this.patientNotFound = true;
         }
       } catch (error) {
         console.error("Search error:", error);
@@ -159,7 +163,7 @@ export default {
             },
             body: JSON.stringify({
               full_name: this.form.full_name,
-              age: this.form.age,
+              dob: this.form.dob,
               sex: this.form.sex
             })
           });
@@ -167,29 +171,38 @@ export default {
           patientId = newPatient.id;
         }
 
-        await fetch("/api/casepaper", {
+
+          const response = await fetch("/api/casepaper", {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
-            "Authentication-Token": this.token
-          },
+              "Content-Type": "application/json",
+              "Authentication-Token": this.token
+            },
           body: JSON.stringify({
-            patient_id: patientId,
-            doctor_id: localStorage.getItem("user_id"),
-            symptoms: this.form.symptoms,
-            diagnosis: this.form.diagnosis,
-            prescription: this.form.prescription
-          })
-        });
+          patient_id: patientId,
+          doctor_id: localStorage.getItem("user_id"), // Ensure this is the actual doctor ID
+          symptoms: this.form.symptoms,
+          diagnosis: this.form.diagnosis,
+          prescription: this.form.prescription
+        })
+      });
 
-        alert("Casepaper saved successfully!");
-        this.form = { full_name: '', age: '', sex: '', symptoms: '', diagnosis: '', prescription: '' };
-        this.foundPatient = null;
-        await this.fetchpatients();
-      } catch (error) {
-        console.error("Error saving casepaper:", error);
-        alert("An error occurred. Please try again.");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to save casepaper");
       }
+
+      alert("Casepaper saved successfully!");
+      this.form = { full_name: '', dob: '', sex: '', symptoms: '', diagnosis: '', prescription: '' };
+      this.foundPatient = null;
+      this.patientNotFound = false;
+      this.showForm = false;
+      await this.fetchpatients();
+    } catch (error) {
+      console.error("Error saving casepaper:", error);
+      alert(`An error occurred: ${error.message}`);
     }
-  }
-}
+
+        }
+      }
+  };

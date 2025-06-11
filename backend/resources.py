@@ -61,11 +61,6 @@ parser1.add_argument(
     help="contact number is required and should be a string",
 )
 
-parser1.add_argument(
-    "date_of_arrival",
-    type=str,
-    help="date of arrival is required and should be a string",
-)
 
 
 patient_fields = {
@@ -74,11 +69,10 @@ patient_fields = {
     "pincode": fields.String,
     "address": fields.String,
     "dob": fields.String,
-    "age":fields.Integer,
+    #"age":fields.Integer,
     "weight": fields.Integer,
     "sex":fields.String,
     "phone":fields.String,
-    "date_of_arrival":fields.String,
     "active": fields.Boolean,
 }
 
@@ -87,9 +81,7 @@ class PatientAPI(Resource):
         patients = Patient.query.all()
         if not patients:
             return {"message": "No patient records found"}, 200
-        return marshal(patients, patient_fields), 200
-        
-        '''return jsonify([{
+        return jsonify([{
             "id" : patient.id,
             "full_name": patient.full_name,
             "address" : patient.address,
@@ -99,15 +91,12 @@ class PatientAPI(Resource):
             "weight" : patient.weight,
             "sex" : patient.sex,
             "phone" : patient.phone,
-            "date_of_arrival" : patient.date_of_arrival,
+            
         
-        } for patient in patients])'''
+        } for patient in patients])
 
     def post(self):
         args = parser1.parse_args()
-
-
-
         try:
             dob = datetime.strptime(args.dob, "%Y-%m-%d").date()
             today = date.today()
@@ -124,12 +113,9 @@ class PatientAPI(Resource):
             weight=args.weight,
             sex=args.sex,
             phone=args.phone,
-            date_of_arrival=args.date_of_arrival
         )
-
         db.session.add(new_patient)
         db.session.commit()
-
         return {"message": "Patient profile created successfully", "patient_id": new_patient.id}, 201
 
 class  UpdatePatient(Resource):
@@ -148,7 +134,6 @@ class  UpdatePatient(Resource):
         patients.weight=args.weight
         patients.sex=args.sex
         patients.phone=args.phone
-        patients.date_of_arrival=args.date_of_arrival
         db.session.commit()
         return {"message":"Patient Info updated"}
 
@@ -247,17 +232,63 @@ casepaper_parser.add_argument("diagnosis", type=str, required=True, help="Diagno
 casepaper_parser.add_argument("prescription", type=str, required=True, help="Prescription is required")
 
 
+casepaper_fields={
+    "id":fields.Integer,
+    "patient_id": fields.Integer,
+    "doctor_id":fields.Integer,
+    "symptoms": fields.String,
+    "diagnosis": fields.String,
+    "prescription": fields.String,
+    "created_at":fields.String,
+
+}
+
 class CasepaperAPI(Resource):
     @roles_required("doctor")
     @auth_required("token")
+
+    def get(self):
+        user=current_user
+        casepaper=Casepaper.query.all()
+        patient=Patient.query.all()
+        doctor=Doctor.query.all()
+
+
+        response=[]
+        for req in casepaper:
+            patient=Patient.query.filter_by(id=req.patient_id).first()
+            doctor=Doctor.query.filter_by(id=req.doctor_id).first()
+
+            response.append({
+                "id":req.id,
+                "patient_id": patient.id,
+                "doctor_id": doctor.id,
+                "patient_name":patient.full_name,
+                "age": patient.age,
+                "weight":patient.weight,
+                "address":patient.address,
+                "symptoms":req.symptoms,
+                "diagnosois":req.diagnosis,
+                "prescription": req.prescription,
+                "created_at":req.created_at,
+            })
+        return{
+            "casepaper":marshal(response,casepaper_fields) if casepaper else []
+        }
+
+    @auth_required("token")
     def post(self):
         args = casepaper_parser.parse_args()
+        
+        current_date = datetime.now()
         new_casepaper = Casepaper(
-            patient_id=args["patient_id"],
-            doctor_id=args["doctor_id"],
-            symptoms=args["symptoms"],
-            diagnosis=args["diagnosis"],
-            prescription=args["prescription"]
+            patient_id=args.patient_id,
+            doctor_id=args.doctor_id,
+            symptoms=args.symptoms,
+            diagnosis=args.diagnosis,
+            prescription=args.prescription,
+            created_at=current_date,
+
         )
         db.session.add(new_casepaper)
         db.session.commit()

@@ -24,14 +24,15 @@ class User(db.Model, UserMixin):
     roles = db.relationship(
         "Role", secondary="roles_users", backref=db.backref("users", lazy="dynamic")
     )
+
 class Casepaper(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
-    doctor_id = db.Column(db.Integer, nullable=False)  # Or ForeignKey if you have a Doctor model
-    symptoms = db.Column(db.Text)
-    diagnosis = db.Column(db.Text)
-    prescription = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    id = db.Column(db.Integer(), primary_key=True)
+    patient_id = db.Column(db.Integer(), db.ForeignKey('patient.id'), nullable=False)
+    doctor_id=db.Column(db.Integer(), db.ForeignKey('doctor.id'), nullable=False)
+    symptoms = db.Column(db.String())
+    diagnosis = db.Column(db.String())
+    prescription = db.Column(db.String())
+    created_at = db.Column(db.String())
     
 class Doctor(db.Model):
     id = db.Column(db.Integer(), primary_key=True)
@@ -52,16 +53,5 @@ class Patient(db.Model):
     weight = db.Column(db.Integer())
     sex = db.Column(db.String())
     phone = db.Column(db.String(), unique=True)
-    date_of_arrival = db.Column(db.String(),nullable=False)
+    #date_of_arrival = db.Column(db.String(),nullable=False)
     active = db.Column(db.Boolean, default=True)
-
-class Complaints(db.Model):
-    id = db.Column(db.Integer(), primary_key=True)
-    patient_id = db.Column(db.Integer(), db.ForeignKey("patient.id"))
-    complaints = db.Column(db.String(),nullable=False)
-    findings = db.Column(db.String())
-    feedback =db.Column(db.String())
-    treatment = db.Column(db.String())
-    weight = db.Column(db.Integer())
-    date = db.Column(db.String(),nullable=False)
-    fees = db.Column(db.Integer())
