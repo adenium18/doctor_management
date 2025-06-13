@@ -7,6 +7,7 @@ import PatientProfile from "./components/PatientProfile.js";
 import PatientHistory from "./components/PatientHistory.js";
 import DoctorSignup from "./components/DoctorSignup.js";
 import Patients from "./components/Patients.js"
+import Casepaper from "./components/Casepaper.js";
 //import ServiceProfessionalSignup from "./components/ServiceProfessionalSignup.js";
 //import Users from "./components/Users.js";
 //import ServiceForm from "./components/ServiceForm.js";
@@ -25,6 +26,7 @@ const routes = [
     { path: '/patient_profile', component: PatientProfile},
     { path: '/all_complaints', component: AllComplaints},
     { path: '/patients', component: Patients},
+    { path: '/casepapers', component: Casepaper}
 ];
 
 const router = new VueRouter({

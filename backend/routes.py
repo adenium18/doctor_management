@@ -105,61 +105,77 @@ def delete_patient(id):
     return jsonify({"message": "patient deleted successfully"})
 
 # Create a new casepaper
-
 @app.route("/api/casepaper", methods=["GET"])
 @auth_required("token")
+@roles_required("doctor")
 def get_casepaper():
-    casepaper=(db.session.query(
-        Casepaper.id,
-        Casepaper.created_at,
-        Casepaper.diagnosis,
-        Casepaper.doctor_id,
-        Casepaper.patient_id,
-        Casepaper.symptoms,
-        Casepaper.prescription
-    )
-    .join(Patient, Casepaper.patient_id == Patient.id)
-    .join(Doctor, Casepaper.doctor_id ==Doctor.id)
-    .all()
+    casepaper_list = (
+        db.session.query(
+            Casepaper.id,
+            Casepaper.doctor_id,
+            Casepaper.patient_id,
+            Patient.full_name,
+            Patient.age,
+            Patient.sex,
+            Patient.address,
+            Patient.weight,
+            Patient.phone,
+            Casepaper.created_at,
+            Casepaper.symptoms,
+            Casepaper.diagnosis,
+            Casepaper.prescription
+        )
+        .join(Patient, Casepaper.patient_id == Patient.id)
+        .join(Doctor, Casepaper.doctor_id == Doctor.id)
+        .all()
     )
 
-    if not casepaper:
+    if not casepaper_list:
         return jsonify({'message': "No casepaper / history found"}), 404
-    return jsonify({
-        "casepaper":[{
+
+    return jsonify([
+        {
             "id": req.id,
             "patient_id": req.patient_id,
             "doctor_id": req.doctor_id,
-            "created_at": req.created_at,
-            "symptoms":req.symptoms,
-            "diagnosis":req.diagnosis,
-            "prescription": req.prescription,
+            "full_name": req.full_name,
+            "age": req.age,
+            "sex": req.sex,
+            "address": req.address,
+            "weight": req.weight,
+            "phone": req.phone,
+            "date_of_arrival": req.created_at.strftime("%Y-%m-%d %H:%M"),
+            "symptoms": req.symptoms,
+            "diagnosis": req.diagnosis,
+            "prescription": req.prescription
+        } for req in casepaper_list
+    ])
 
-        }for req in casepaper]
-    })
 
 @app.route("/api/casepaper", methods=["POST"])
 @auth_required("token")
 @roles_required("doctor")
 def create_casepaper():
     data = request.json
-    required_fields = ["patient_id", "doctor_id", "symptoms", "diagnosis", "prescription"]
+    required_fields = ["doctor_id", "symptoms", "diagnosis", "prescription"]
 
     if not all(field in data for field in required_fields):
         return jsonify({"error": "Missing required fields"}), 400
 
     # Optionally verify patient and doctor exist
-    patient = Patient.query.get(data["patient_id"])
-    doctor = Doctor.query.get(data["doctor_id"])
+    patient = Patient.query.get(data.get("patient_id"))
+    doctor = Doctor.query.get(data.get("doctor_id"))
     if not patient or not doctor:
         return jsonify({"error": "Invalid patient_id or doctor_id"}), 404
-
+    doctor_id=data.get("doctor_id")
+    patient_id=data.get("patient_id")
+    
     new_casepaper = Casepaper(
-        patient_id=patient.id,
-        doctor_id=doctor.id,
-        symptoms=data["symptoms"],
-        diagnosis=data["diagnosis"],
-        prescription=data["prescription"]
+        patient_id=patient_id,
+        doctor_id=doctor_id,
+        symptoms=data.get("symptoms",""),
+        diagnosis=data.get("diagnosis",""),
+        prescription=data.get("prescription")
         # created_at auto-filled by default=datetime.utcnow
     )
     db.session.add(new_casepaper)
@@ -198,7 +214,7 @@ def search_patient():
         "sex": patient.sex,
         "address": patient.address,
         "pincode": patient.pincode,
-        "dob": patient.dob.strftime("%Y-%m-%d") if patient.dob else None,
+        "dob": patient.dob if patient.dob else None,
         "weight": patient.weight,
         "phone": patient.phone,
         #"date_of_arrival": patient.date_of_arrival.strftime("%Y-%m-%d") if patient.date_of_arrival else None,

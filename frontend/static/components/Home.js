@@ -20,7 +20,7 @@ export default {
       <div v-if="foundPatient" class="alert alert-success">
         Patient <strong>{{ foundPatient.full_name }}</strong> found.
         <br>
-        <strong>dob:</strong> {{ foundPatient.dob }} | <strong>Gender:</strong> {{ foundPatient.sex }}
+        <strong>DOB:</strong> {{ foundPatient.dob }} | <strong>Gender:</strong> {{ foundPatient.sex }}
         <br>
         <button class="btn btn-sm btn-success mt-2" @click="showForm = true">Add Casepaper</button>
       </div>
@@ -42,18 +42,46 @@ export default {
                 <input type="text" class="form-control" v-model="form.full_name" :readonly="!!foundPatient">
               </div>
               <div class="col-md-4">
-                <label class="form-label">dob</label>
-                <input type="date" class="form-control" v-model="form.dob">
+                <label class="form-label">DOB</label>
+                <input type="date" class="form-control" v-model="form.dob" :max="today" min="1900-01-01">
               </div>
+              <div class="col-md-4">
+                <label class="form-label">Age</label>
+                <input type="number" class="form-control" :value="calculatedAge" readonly>
+              </div>
+            </div>
+
+            <div class="row mb-3">
               <div class="col-md-4">
                 <label class="form-label">Gender</label>
                 <select class="form-select" v-model="form.sex">
-                  <option selected disabled>Select</option>
+                  <option disabled selected>Select</option>
                   <option>Male</option>
                   <option>Female</option>
                   <option>Other</option>
                 </select>
               </div>
+              <div class="col-md-4">
+                <label class="form-label">Weight (kg)</label>
+                <input type="number" class="form-control" v-model="form.weight">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Phone</label>
+                <input type="text" class="form-control" v-model="form.phone" :class="{ 'is-invalid': phoneError }">
+                <div v-if="phoneError" class="invalid-feedback">
+                  Phone number already exists. Please use a different number.
+                </div>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Address</label>
+              <input type="text" class="form-control" v-model="form.address">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Pincode</label>
+              <input type="text" class="form-control" v-model="form.pincode">
             </div>
 
             <div class="mb-3">
@@ -95,18 +123,32 @@ export default {
       foundPatient: null,
       patientNotFound: false,
       showForm: false,
+      phoneError: false,
+      today: new Date().toISOString().split("T")[0],
       form: {
-        full_name: '',
-        dob: '',
-        sex: '',
-        symptoms: '',
-        diagnosis: '',
-        prescription: ''
+        full_name: '', dob: '', age: '', weight: '', sex: '',
+        phone: '', address: '', pincode: '',
+        symptoms: '', diagnosis: '', prescription: ''
       }
     };
   },
 
   components: { Patients },
+
+  computed: {
+    calculatedAge() {
+      if (!this.form.dob) return '';
+      const today = new Date();
+      const birthDate = new Date(this.form.dob);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      this.form.age = age;
+      return age;
+    }
+  },
 
   async mounted() {
     await this.fetchpatients();
@@ -140,6 +182,10 @@ export default {
           this.foundPatient = data;
           this.form.dob = data.dob;
           this.form.sex = data.sex;
+          this.form.phone = data.phone;
+          this.form.weight = data.weight;
+          this.form.address = data.address;
+          this.form.pincode = data.pincode;
         } else {
           this.patientNotFound = true;
         }
@@ -151,6 +197,7 @@ export default {
     async handleSubmit() {
       try {
         let patientId;
+        this.phoneError = false;
 
         if (this.foundPatient) {
           patientId = this.foundPatient.id;
@@ -164,45 +211,65 @@ export default {
             body: JSON.stringify({
               full_name: this.form.full_name,
               dob: this.form.dob,
-              sex: this.form.sex
+              age: this.form.age,
+              weight: this.form.weight,
+              sex: this.form.sex,
+              phone: this.form.phone,
+              address: this.form.address,
+              pincode: this.form.pincode
             })
           });
+
           const newPatient = await res.json();
+
+          if (!res.ok) {
+            if (newPatient.error && newPatient.error.toLowerCase().includes("phone")) {
+              this.phoneError = true;
+            } else {
+              alert("Error creating patient: " + (newPatient.error || "Unknown error"));
+            }
+            return;
+          }
+
           patientId = newPatient.id;
         }
 
-
-          const response = await fetch("/api/casepaper", {
+        const response = await fetch("/api/casepaper", {
           method: "POST",
           headers: {
-              "Content-Type": "application/json",
-              "Authentication-Token": this.token
-            },
+            "Content-Type": "application/json",
+            "Authentication-Token": this.token
+          },
           body: JSON.stringify({
-          patient_id: patientId,
-          doctor_id: localStorage.getItem("user_id"), // Ensure this is the actual doctor ID
-          symptoms: this.form.symptoms,
-          diagnosis: this.form.diagnosis,
-          prescription: this.form.prescription
-        })
-      });
+            patient_id: patientId,
+            doctor_id: localStorage.getItem("user_id"),
+            symptoms: this.form.symptoms,
+            diagnosis: this.form.diagnosis,
+            prescription: this.form.prescription
+          })
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to save casepaper");
-      }
-
-      alert("Casepaper saved successfully!");
-      this.form = { full_name: '', dob: '', sex: '', symptoms: '', diagnosis: '', prescription: '' };
-      this.foundPatient = null;
-      this.patientNotFound = false;
-      this.showForm = false;
-      await this.fetchpatients();
-    } catch (error) {
-      console.error("Error saving casepaper:", error);
-      alert(`An error occurred: ${error.message}`);
-    }
-
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to save casepaper");
         }
+
+        alert("Casepaper saved successfully!");
+        this.form = {
+          full_name: '', dob: '', age: '', weight: '', sex: '',
+          phone: '', address: '', pincode: '',
+          symptoms: '', diagnosis: '', prescription: ''
+        };
+        this.foundPatient = null;
+        this.patientNotFound = false;
+        this.showForm = false;
+        this.phoneError = false;
+        await this.fetchpatients();
+
+      } catch (error) {
+        console.error("Error saving casepaper:", error);
+        alert(`An error occurred: ${error.message}`);
       }
-  };
+    }
+  }
+};

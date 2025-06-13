@@ -27,12 +27,14 @@ class User(db.Model, UserMixin):
 
 class Casepaper(db.Model):
     id = db.Column(db.Integer(), primary_key=True)
-    patient_id = db.Column(db.Integer(), db.ForeignKey('patient.id'), nullable=False)
+    patient_id = db.Column(db.Integer(), db.ForeignKey('patient.id'))
     doctor_id=db.Column(db.Integer(), db.ForeignKey('doctor.id'), nullable=False)
     symptoms = db.Column(db.String())
     diagnosis = db.Column(db.String())
     prescription = db.Column(db.String())
     created_at = db.Column(db.String())
+    patient = db.relationship("Patient", backref=db.backref('casepaper', lazy='dynamic'))
+
     
 class Doctor(db.Model):
     id = db.Column(db.Integer(), primary_key=True)
@@ -52,6 +54,6 @@ class Patient(db.Model):
     age = db.Column(db.Integer(),nullable=False)
     weight = db.Column(db.Integer())
     sex = db.Column(db.String())
-    phone = db.Column(db.String(), unique=True)
+    phone = db.Column(db.String())
     #date_of_arrival = db.Column(db.String(),nullable=False)
     active = db.Column(db.Boolean, default=True)

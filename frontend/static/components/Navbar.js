@@ -50,7 +50,7 @@ export default {
                         <router-link class="nav-link" to="/patient_history">Patient History</router-link>
                     </li>
                     <li class="nav-item" v-if="role === 'doctor'">
-                        <router-link class="nav-link" to="/all_complaints">All complaints</router-link>
+                        <router-link class="nav-link" to="/casepapers">All complaints</router-link>
                     </li>
 
                     <li class="nav-item" v-if="role === 'doctor'">

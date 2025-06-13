@@ -77,6 +77,8 @@ patient_fields = {
 }
 
 class PatientAPI(Resource):
+    @roles_required("doctor")
+    @auth_required("token")
     def get(self):
         patients = Patient.query.all()
         if not patients:
@@ -225,17 +227,22 @@ class DoctorsAPI(Resource):
 
 # Request parser for casepaper creation
 casepaper_parser = reqparse.RequestParser()
-casepaper_parser.add_argument("patient_id", type=int, required=True, help="Patient ID is required")
+casepaper_parser.add_argument("patient_id", type=int, help="Patient ID is required")
 casepaper_parser.add_argument("doctor_id", type=int, required=True, help="Doctor ID is required")
 casepaper_parser.add_argument("symptoms", type=str, required=True, help="Symptoms are required")
 casepaper_parser.add_argument("diagnosis", type=str, required=True, help="Diagnosis is required")
 casepaper_parser.add_argument("prescription", type=str, required=True, help="Prescription is required")
 
-
 casepaper_fields={
     "id":fields.Integer,
     "patient_id": fields.Integer,
     "doctor_id":fields.Integer,
+    "patient_name":fields.String,
+    "age":fields.Integer,
+    "weight":fields.Integer,
+    "sex":fields.Integer,
+    "address":fields.String,
+    "phone":fields.String,
     "symptoms": fields.String,
     "diagnosis": fields.String,
     "prescription": fields.String,
@@ -260,41 +267,52 @@ class CasepaperAPI(Resource):
             doctor=Doctor.query.filter_by(id=req.doctor_id).first()
 
             response.append({
-                "id":req.id,
-                "patient_id": patient.id,
-                "doctor_id": doctor.id,
-                "patient_name":patient.full_name,
-                "age": patient.age,
-                "weight":patient.weight,
-                "address":patient.address,
-                "symptoms":req.symptoms,
-                "diagnosois":req.diagnosis,
+                "id": req.id,
+                "patient_id": req.patient_id,
+                "doctor_id": req.doctor_id,
+                '''"patient_name": req.full_name,
+                "age": req.patient.age,
+                "sex": req.patient.sex,
+                "weight": req.patient.weight,
+                "address": req.patient.address,
+                "phone":req.patient.phone,'''
+                "symptoms": req.symptoms,
+                "diagnosis": req.diagnosis,
                 "prescription": req.prescription,
-                "created_at":req.created_at,
+                "created_at": req.created_at,
             })
         return{
             "casepaper":marshal(response,casepaper_fields) if casepaper else []
         }
-
+    
     @auth_required("token")
     def post(self):
-        args = casepaper_parser.parse_args()
-        
-        current_date = datetime.now()
-        new_casepaper = Casepaper(
-            patient_id=args.patient_id,
-            doctor_id=args.doctor_id,
-            symptoms=args.symptoms,
-            diagnosis=args.diagnosis,
-            prescription=args.prescription,
-            created_at=current_date,
+        print("JSON received:", request.get_json())
+        try:
+            print("Headers:", request.headers)
+            print("Raw Data:", request.data)
+            print("Is JSON:", request.is_json)
 
-        )
-        db.session.add(new_casepaper)
-        db.session.commit()
+            args = casepaper_parser.parse_args()
+            print("Parsed Args:", args)
 
-        return {"message": "Casepaper created successfully"}, 201
+            current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+            new_casepaper = Casepaper(
+                patient_id=args.patient_id,
+                doctor_id=args.doctor_id,
+                symptoms=args.symptoms,
+                diagnosis=args.diagnosis,
+                prescription=args.prescription,
+                created_at=current_date,
+            )
+            db.session.add(new_casepaper)
+            db.session.commit()
+
+            return {"message": "Casepaper created successfully"}, 201
+        except Exception as e:
+            print("Error occurred:", e)
+            return {"message": "Error creating casepaper", "error": str(e)}, 400
 
 api.add_resource(PatientAPI,"/patients")
 api.add_resource(DoctorsAPI,"/doctors")
