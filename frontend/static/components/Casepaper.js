@@ -20,13 +20,13 @@ export default {
                     </thead>
                     <tbody>
                         <tr v-for="casepaper in casepapers" :key="casepaper.id">
-                            <td>{{ casepaper.full_name }}</td>
+                            <td>{{ casepaper.patient_name }}</td>
                             <td>{{ casepaper.age }} Yrs</td>
                             <td>{{ casepaper.address }}</td>
                             <td>{{ casepaper.sex }}</td>
                             <td>{{ casepaper.weight }}</td>
                             <td>{{ casepaper.phone }}</td>
-                            <td>{{ casepaper.date_of_arrival }}</td>
+                            <td>{{ casepaper.created_at }}</td>
                             <td>{{ casepaper.symptoms}}</td>
                             <td>{{ casepaper.diagnosis}}</td>
                             <td>{{ casepaper.prescription}}</td>
@@ -92,7 +92,7 @@ export default {
             const data = await res.json();
             console.log("Fetched casepapers:", data);
             if (res.ok) {
-                this.casepapers = data;
+                this.casepapers = data.casepaper;
             } else {
                 this.casepapers = [];
             }

@@ -60,7 +60,7 @@ def manage_patients():
 
         db.session.add(new_patient)
         db.session.commit()
-        return jsonify({"message":"patient profile created successfully"}),201
+        return jsonify({"id":new_patient.id, "message":"patient profile created successfully"}),201
     
 
 @app.route("/api/update/patient/<int:id>", methods=["GET","POST"])
@@ -138,13 +138,13 @@ def get_casepaper():
             "id": req.id,
             "patient_id": req.patient_id,
             "doctor_id": req.doctor_id,
-            "full_name": req.full_name,
+            "patient_name": req.full_name,
             "age": req.age,
             "sex": req.sex,
             "address": req.address,
             "weight": req.weight,
             "phone": req.phone,
-            "date_of_arrival": req.created_at.strftime("%Y-%m-%d %H:%M"),
+            "created_at": req.created_at.strftime("%Y-%m-%d %H:%M"),
             "symptoms": req.symptoms,
             "diagnosis": req.diagnosis,
             "prescription": req.prescription
@@ -219,7 +219,7 @@ def search_patient():
         "phone": patient.phone,
         #"date_of_arrival": patient.date_of_arrival.strftime("%Y-%m-%d") if patient.date_of_arrival else None,
         # ✅ Add this field
-        "last_visit": latest_casepaper.created_at.strftime('%Y-%m-%d %H:%M') if latest_casepaper else None
+        "last_visit": latest_casepaper.created_at if latest_casepaper else None
     })
 
 

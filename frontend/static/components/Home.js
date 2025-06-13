@@ -221,7 +221,7 @@ export default {
           });
 
           const newPatient = await res.json();
-
+          console.log("New patient response:", newPatient); // <== Add this line
           if (!res.ok) {
             if (newPatient.error && newPatient.error.toLowerCase().includes("phone")) {
               this.phoneError = true;
@@ -231,8 +231,16 @@ export default {
             return;
           }
 
-          patientId = newPatient.id;
-        }
+          
+      // ✅ This is important
+     
+      if (!newPatient.patient_id) {
+        throw new Error("Patient created but ID not returned");
+      }
+
+      patientId = newPatient.patient_id;
+    }
+        
 
         const response = await fetch("/api/casepaper", {
           method: "POST",

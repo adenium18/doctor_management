@@ -14,7 +14,6 @@ export default {
                             <th>DOB</th>
                             <th>Weight</th>
                             <th>Phone</th>
-                            <th>Date of Arrival</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -28,7 +27,6 @@ export default {
                             <td>{{ patient.dob }}</td>
                             <td>{{ patient.weight }}</td>
                             <td>{{ patient.phone }}</td>
-                            <td>{{ patient.date_of_arrival }}</td>
                             <td>
                                 <button class="btn btn-sm btn-secondary" @click="update(patient.id)">Edit</button>
                                 <button class="btn btn-sm btn-danger" @click="del(patient.id)">Delete</button>
