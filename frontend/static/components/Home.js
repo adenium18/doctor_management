@@ -6,11 +6,13 @@ export default {
     <h1 class="text-center fw-bold">Welcome {{ user.full_name }} to Dr. A-to-Z 🏥</h1>
     <hr class="custom-hr">
 
+    <!-- Info Block -->
     <div class="alert alert-info text-center">
       <h5>👨‍⚕️ Doctor's Dashboard</h5>
-      <p>Search for an existing patient to view or add a new casepaper. If no match is found, you can create a new patient record and attach the casepaper.</p>
+      <p>Search for an existing patient or create a new one—now with support for name duplicates.</p>
     </div>
 
+    <!-- Search -->
     <div class="container mb-4">
       <div class="input-group mb-3">
         <input v-model="form.full_name" type="text" class="form-control" placeholder="Enter patient name">
@@ -18,7 +20,7 @@ export default {
       </div>
 
       <div v-if="foundPatient" class="alert alert-success">
-        Patient <strong>{{ foundPatient.full_name }}</strong> found.
+        Patient <strong>{{ foundPatient.full_name }}</strong> selected.
         <br>
         <strong>DOB:</strong> {{ foundPatient.dob }} | <strong>Gender:</strong> {{ foundPatient.sex }}
         <br>
@@ -31,118 +33,128 @@ export default {
       </div>
     </div>
 
-    <div v-if="showForm" class="container mb-5">
-      <div class="card">
-        <div class="card-body">
-          <h4 class="card-title">Casepaper Entry</h4>
-          <form @submit.prevent="handleSubmit">
-            <div class="row mb-3">
-              <div class="col-md-4">
-                <label class="form-label">Patient Name</label>
-                <input type="text" class="form-control" v-model="form.full_name" :readonly="!!foundPatient">
-              </div>
-              <div class="col-md-4">
-                <label class="form-label">DOB</label>
-                <input type="date" class="form-control" v-model="form.dob" :max="today" min="1900-01-01">
-              </div>
-              <div class="col-md-4">
-                <label class="form-label">Age</label>
-                <input type="number" class="form-control" :value="calculatedAge" readonly>
-              </div>
-            </div>
-
-            <div class="row mb-3">
-              <div class="col-md-4">
-                <label class="form-label">Gender</label>
-                <select class="form-select" v-model="form.sex">
-                  <option disabled selected>Select</option>
-                  <option>Male</option>
-                  <option>Female</option>
-                  <option>Other</option>
-                </select>
-              </div>
-              <div class="col-md-4">
-                <label class="form-label">Weight (kg)</label>
-                <input type="number" class="form-control" v-model="form.weight">
-              </div>
-              <div class="col-md-4">
-                <label class="form-label">Phone</label>
-                <input type="text" class="form-control" v-model="form.phone" :class="{ 'is-invalid': phoneError }">
-                <div v-if="phoneError" class="invalid-feedback">
-                  Phone number already exists. Please use a different number.
-                </div>
-              </div>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label">Address</label>
-              <input type="text" class="form-control" v-model="form.address">
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label">Pincode</label>
-              <input type="text" class="form-control" v-model="form.pincode">
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label">Symptoms</label>
-              <textarea class="form-control" rows="2" v-model="form.symptoms" placeholder="Describe symptoms"></textarea>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label">Diagnosis</label>
-              <textarea class="form-control" rows="2" v-model="form.diagnosis" placeholder="Enter diagnosis"></textarea>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label">Prescription</label>
-              <textarea class="form-control" rows="2" v-model="form.prescription" placeholder="Enter prescription"></textarea>
-            </div>
-
-            <button type="submit" class="btn btn-primary">Save Casepaper</button>
-          </form>
+    <!-- Match Modal -->
+    <div class="modal fade" id="matchingPatientsModal" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Select a Patient</h5>
+            <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+          </div>
+          <div class="modal-body">
+            <p>Multiple patients found with name <strong>{{ form.full_name }}</strong>:</p>
+            <ul class="list-group">
+              <li class="list-group-item" v-for="p in matchingPatients" :key="p.id">
+                {{ p.full_name }} | DOB: {{ p.dob }} | Phone: {{ p.phone }}
+                <button class="btn btn-sm btn-primary float-end" @click="selectPatient(p)">Select</button>
+              </li>
+            </ul>
+            <hr>
+            <button class="btn btn-outline-secondary w-100 mt-2" @click="createNewPatientWithSameName">
+              ➕ Create New Patient with This Name
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="card text-center mt-4">
-      <div class="card-title"><h2>Contact Support</h2></div>
-      <div class="card-text">
-        <p>If you need assistance, email us at <a href="mailto:medsupport@atozapp.com">medsupport@atozapp.com</a>.</p>
-      </div>
+    <!-- Casepaper Form -->
+    <div v-if="showForm" class="container mb-5">
+      <div class="card"><div class="card-body">
+        <h4 class="card-title">Casepaper Entry</h4>
+        <form @submit.prevent="handleSubmit">
+          <div class="row mb-3">
+            <div class="col-md-4">
+              <label class="form-label">Patient Name</label>
+              <input type="text" class="form-control" v-model="form.full_name">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">DOB</label>
+              <input type="date" class="form-control" v-model="form.dob" :max="today" min="1900-01-01">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Age</label>
+              <input type="number" class="form-control" :value="calculatedAge" readonly>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-4">
+              <label class="form-label">Gender</label>
+              <select class="form-select" v-model="form.sex">
+                <option disabled selected>Select</option>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Weight (kg)</label>
+              <input type="number" class="form-control" v-model="form.weight">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Phone</label>
+              <input type="text" class="form-control" v-model="form.phone" :class="{ 'is-invalid': phoneError }">
+              <div v-if="phoneError" class="invalid-feedback">Phone number already exists.</div>
+            </div>
+          </div>
+
+          <div class="mb-3"><label>Address</label><input class="form-control" v-model="form.address" /></div>
+          <div class="mb-3"><label>Pincode</label><input class="form-control" v-model="form.pincode" /></div>
+
+          <div class="mb-3"><label>Symptoms</label><textarea class="form-control" v-model="form.symptoms"></textarea></div>
+          <div class="mb-3"><label>Diagnosis</label><textarea class="form-control" v-model="form.diagnosis"></textarea></div>
+          <div class="mb-3"><label>Prescription</label><textarea class="form-control" v-model="form.prescription"></textarea></div>
+
+          <button class="btn btn-primary">Save Casepaper</button>
+        </form>
+      </div></div>
     </div>
+
+    <div class="card text-center mt-4"><div class="card-body">
+      <h2>Contact Support</h2>
+      <p>Email: <a href="mailto:medsupport@atozapp.com">medsupport@atozapp.com</a></p>
+    </div></div>
   </div>
   `,
 
   data() {
     return {
       user: {},
-      patients: [],
       token: localStorage.getItem("auth-token"),
       role: localStorage.getItem("role"),
+      today: new Date().toISOString().split("T")[0],
+
+      matchingPatients: [],
       foundPatient: null,
       patientNotFound: false,
       showForm: false,
+      forceCreateNew: false,
       phoneError: false,
-      today: new Date().toISOString().split("T")[0],
+
       form: {
-        full_name: '', dob: '', age: '', weight: '', sex: '',
-        phone: '', address: '', pincode: '',
-        symptoms: '', diagnosis: '', prescription: ''
+        full_name: '',
+        dob: '',
+        age: '',
+        weight: '',
+        sex: '',
+        phone: '',
+        address: '',
+        pincode: '',
+        symptoms: '',
+        diagnosis: '',
+        prescription: ''
       }
     };
   },
 
-  components: { Patients },
-
   computed: {
     calculatedAge() {
       if (!this.form.dob) return '';
-      const today = new Date();
-      const birthDate = new Date(this.form.dob);
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const m = today.getMonth() - birthDate.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      const td = new Date();
+      const bd = new Date(this.form.dob);
+      let age = td.getFullYear() - bd.getFullYear();
+      if (td.getMonth() < bd.getMonth() || (td.getMonth() === bd.getMonth() && td.getDate() < bd.getDate())) {
         age--;
       }
       this.form.age = age;
@@ -150,57 +162,67 @@ export default {
     }
   },
 
-  async mounted() {
-    await this.fetchpatients();
-  },
-
   methods: {
-    async fetchpatients() {
-      try {
-        const res = await fetch("/api/patients", {
-          headers: { "Authentication-Token": this.token }
-        });
-        const data = await res.json();
-        if (res.ok) this.patients = data;
-      } catch (error) {
-        console.error("Error fetching patients:", error);
-      }
-    },
-
     async searchPatient() {
+      this.matchingPatients = [];
       this.foundPatient = null;
       this.patientNotFound = false;
       this.showForm = false;
+      this.forceCreateNew = false;
 
       try {
-        const res = await fetch(`/api/patient/search?query=${this.form.full_name}`, {
+        const res = await fetch(`/api/patient/search?query=${encodeURIComponent(this.form.full_name)}`, {
           headers: { "Authentication-Token": this.token }
         });
         const data = await res.json();
 
-        if (data && data.id) {
+        if (Array.isArray(data) && data.length > 1) {
+          this.matchingPatients = data;
+          $("#matchingPatientsModal").modal("show");
+        } else if (data && data.id) {
           this.foundPatient = data;
-          this.form.dob = data.dob;
-          this.form.sex = data.sex;
-          this.form.phone = data.phone;
-          this.form.weight = data.weight;
-          this.form.address = data.address;
-          this.form.pincode = data.pincode;
+          this.prefillForm(data);
         } else {
           this.patientNotFound = true;
         }
-      } catch (error) {
-        console.error("Search error:", error);
+      } catch (err) {
+        console.error("Search error:", err);
       }
+    },
+
+    selectPatient(p) {
+      this.foundPatient = p;
+      this.prefillForm(p);
+      this.showForm = true;
+      this.forceCreateNew = false;
+      $("#matchingPatientsModal").modal("hide");
+    },
+
+    createNewPatientWithSameName() {
+      this.foundPatient = null;
+      this.forceCreateNew = true;
+      this.showForm = true;
+      $("#matchingPatientsModal").modal("hide");
+    },
+
+    prefillForm(data) {
+      this.form = {
+        ...this.form,
+        full_name: data.full_name,
+        dob: data.dob,
+        sex: data.sex,
+        phone: data.phone || '',
+        weight: data.weight || '',
+        address: data.address || '',
+        pincode: data.pincode || ''
+      };
+      this.calculatedAge;
     },
 
     async handleSubmit() {
       try {
-        let patientId;
-        this.phoneError = false;
-
-        if (this.foundPatient) {
-          patientId = this.foundPatient.id;
+        if (!this.forceCreateNew && this.foundPatient) {
+          var patientId = this.foundPatient.id;
         } else {
           const res = await fetch("/api/patients", {
             method: "POST",
@@ -220,29 +242,22 @@ export default {
             })
           });
 
-          const newPatient = await res.json();
-          console.log("New patient response:", newPatient); // <== Add this line
+          const result = await res.json();
           if (!res.ok) {
-            if (newPatient.error && newPatient.error.toLowerCase().includes("phone")) {
+            if (result.error && result.error.toLowerCase().includes("phone")) {
               this.phoneError = true;
+              return;
             } else {
-              alert("Error creating patient: " + (newPatient.error || "Unknown error"));
+              alert(result.error || "Failed creating patient");
+              return;
             }
-            return;
           }
 
-          
-      // ✅ This is important
-     
-      if (!newPatient.patient_id) {
-        throw new Error("Patient created but ID not returned");
-      }
+          patientId = result.patient_id || result.id;
+          if (!patientId) throw new Error("No patient ID returned.");
+        }
 
-      patientId = newPatient.patient_id;
-    }
-        
-
-        const response = await fetch("/api/casepaper", {
+        const caseRes = await fetch("/api/casepaper", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -257,27 +272,28 @@ export default {
           })
         });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to save casepaper");
-        }
+        const caseData = await caseRes.json();
+        if (!caseRes.ok) throw new Error(caseData.error || "Failed saving casepaper");
 
-        alert("Casepaper saved successfully!");
-        this.form = {
-          full_name: '', dob: '', age: '', weight: '', sex: '',
-          phone: '', address: '', pincode: '',
-          symptoms: '', diagnosis: '', prescription: ''
-        };
-        this.foundPatient = null;
-        this.patientNotFound = false;
-        this.showForm = false;
-        this.phoneError = false;
-        await this.fetchpatients();
-
-      } catch (error) {
-        console.error("Error saving casepaper:", error);
-        alert(`An error occurred: ${error.message}`);
+        alert("Casepaper saved!");
+        this.resetForm();
+      } catch (err) {
+        console.error(err);
+        alert(`Oops: ${err.message}`);
       }
+    },
+
+    resetForm() {
+      this.form = {
+        full_name: '', dob: '', age: '', weight: '',
+        sex: '', phone: '', address: '', pincode: '',
+        symptoms: '', diagnosis: '', prescription: ''
+      };
+      this.foundPatient = null;
+      this.patientNotFound = false;
+      this.showForm = false;
+      this.phoneError = false;
+      this.forceCreateNew = false;
     }
   }
 };

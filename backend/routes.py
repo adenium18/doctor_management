@@ -107,51 +107,55 @@ def delete_patient(id):
     return jsonify({"message": "patient deleted successfully"})
 
 # Create a new casepaper
-@app.route("/api/casepaper", methods=["GET"])
+@app.route("/api/casepapers", methods=["GET"])
 @auth_required("token")
 @roles_required("doctor")
-def get_casepaper():
-    casepaper_list = (
-        db.session.query(
-            Casepaper.id,
-            Casepaper.doctor_id,
-            Casepaper.patient_id,
-            Patient.full_name,
-            Patient.age,
-            Patient.sex,
-            Patient.address,
-            Patient.weight,
-            Patient.phone,
-            Casepaper.created_at,
-            Casepaper.symptoms,
-            Casepaper.diagnosis,
-            Casepaper.prescription
+def get_casepapers():
+    query = request.args.get("query", "").strip().lower()
+    year = request.args.get("year")
+    month = request.args.get("month")
+    day = request.args.get("day")
+
+    base = db.session.query(
+        Casepaper.id.label("casepaper_id"),
+        Casepaper.created_at,
+        Casepaper.symptoms,
+        Casepaper.diagnosis,
+        Casepaper.prescription,
+        Patient.full_name,
+        Patient.pincode
+    ).join(Patient, Casepaper.patient_id == Patient.id)
+
+    if query:
+        search = f"%{query}%"
+        base = base.filter(
+            db.or_(
+                Patient.full_name.ilike(search),
+                Casepaper.symptoms.ilike(search),
+                Casepaper.diagnosis.ilike(search),
+                Casepaper.prescription.ilike(search)
+            )
         )
-        .join(Patient, Casepaper.patient_id == Patient.id)
-        .join(Doctor, Casepaper.doctor_id == Doctor.id)
-        .all()
-    )
 
-    if not casepaper_list:
-        return jsonify({'message': "No casepaper / history found"}), 404
+    if year:
+        base = base.filter(db.extract("year", Casepaper.created_at) == int(year))
+    if month:
+        base = base.filter(db.extract("month", Casepaper.created_at) == int(month))
+    if day:
+        base = base.filter(db.extract("day", Casepaper.created_at) == int(day))
 
-    return jsonify([
-        {
-            "id": req.id,
-            "patient_id": req.patient_id,
-            "doctor_id": req.doctor_id,
-            "patient_name": req.full_name,
-            "age": req.age,
-            "sex": req.sex,
-            "address": req.address,
-            "weight": req.weight,
-            "phone": req.phone,
-            "created_at": req.created_at.strftime("%Y-%m-%d %H:%M"),
-            "symptoms": req.symptoms,
-            "diagnosis": req.diagnosis,
-            "prescription": req.prescription
-        } for req in casepaper_list
-    ])
+    results = base.order_by(Casepaper.created_at.desc()).all()
+
+    return jsonify([{
+        "casepaper_id": r.casepaper_id,
+        "created_at": r.created_at,
+        "symptoms": r.symptoms,
+        "diagnosis": r.diagnosis,
+        "prescription": r.prescription,
+        "full_name": r.full_name,
+        "pincode": r.pincode
+    } for r in results])
+
 
 
 @app.route("/api/casepaper", methods=["POST"])
@@ -224,32 +228,31 @@ def search_patient():
 
     patients = Patient.query.filter(Patient.full_name.ilike(f"%{query}%")).all()
     if not patients:
-        return jsonify(None), 200  # no patient found
+        return jsonify([]), 200  # Return empty list if no patient found
 
-    patient = patients[0]
+    # ✅ Return a list of matched patients with basic details and their last visit
+    result = []
+    for patient in patients:
+        latest_casepaper = (
+            Casepaper.query
+            .filter_by(patient_id=patient.id)
+            .order_by(Casepaper.created_at.desc())
+            .first()
+        )
+        result.append({
+            "id": patient.id,
+            "full_name": patient.full_name,
+            "age": patient.age,
+            "sex": patient.sex,
+            "address": patient.address,
+            "pincode": patient.pincode,
+            "dob": patient.dob if patient.dob else None,
+            "weight": patient.weight,
+            "phone": patient.phone,
+            "last_visit": latest_casepaper.created_at if latest_casepaper else None
+        })
 
-    # ✅ Fetch the latest casepaper for the patient
-    latest_casepaper = (
-        Casepaper.query
-        .filter_by(patient_id=patient.id)
-        .order_by(Casepaper.created_at.desc())
-        .first()
-    )
-
-    return jsonify({
-        "id": patient.id,
-        "full_name": patient.full_name,
-        "age": patient.age,
-        "sex": patient.sex,
-        "address": patient.address,
-        "pincode": patient.pincode,
-        "dob": patient.dob if patient.dob else None,
-        "weight": patient.weight,
-        "phone": patient.phone,
-        #"date_of_arrival": patient.date_of_arrival.strftime("%Y-%m-%d") if patient.date_of_arrival else None,
-        # ✅ Add this field
-        "last_visit": latest_casepaper.created_at if latest_casepaper else None
-    })
+    return jsonify(result), 200
 
 #-----------------------------------------get casepaper by patient name-for /patient_history-------------
 @app.route('/api/casepapers/patient/<int:patient_id>', methods=['GET'])

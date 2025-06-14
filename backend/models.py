@@ -33,6 +33,7 @@ class Casepaper(db.Model):
     diagnosis = db.Column(db.String())
     prescription = db.Column(db.String())
     created_at = db.Column(db.String())
+    #charges = db.Column(db.Integer(), default=150)
     patient = db.relationship("Patient", backref=db.backref('casepaper', lazy='dynamic'))
 
     
