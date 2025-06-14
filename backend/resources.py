@@ -132,7 +132,6 @@ class  UpdatePatient(Resource):
         patients.address=args.address
         patients.pincode=args.pincode
         patients.dob=args.dob
-        patients.age=args.age
         patients.weight=args.weight
         patients.sex=args.sex
         patients.phone=args.phone
@@ -313,6 +312,9 @@ class CasepaperAPI(Resource):
         except Exception as e:
             print("Error occurred:", e)
             return {"message": "Error creating casepaper", "error": str(e)}, 400
+        
+
+
 
 api.add_resource(PatientAPI,"/patients")
 api.add_resource(DoctorsAPI,"/doctors")

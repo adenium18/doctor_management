@@ -26,46 +26,42 @@ export default {
                         <router-link class="nav-link" to="/service-summary">Service Summary</router-link>
                     </li>
 
-                    <!-- Search Form -->
+                    <!-- Admin Search -->
                     <li class="nav-item" v-if="role === 'admin'">
                         <form @submit.prevent="onSearch" class="d-flex align-items-center">
                             <input type="text" class="form-control me-2" v-model="searchQuery" placeholder="Search..." aria-label="Search">
-                                <select class="form-select me-2" v-model="searchType" required>
-                                    
-                                    <option value="doctors">doctors</option>
-                                    <option value="services">Services</option>
-                                    <option value="service_requests">Service Requests</option>
-                                </select>
+                            <select class="form-select me-2" v-model="searchType" required>
+                                <option value="doctors">Doctors</option>
+                                <option value="services">Services</option>
+                                <option value="service_requests">Service Requests</option>
+                            </select>
                             <button type="submit" class="btn btn-info">Search</button>
                         </form>
                     </li>
 
-
-                    <!-- doctor Navigation -->
-                    
+                    <!-- Doctor Navigation -->
                     <li class="nav-item" v-if="role === 'doctor'">
                         <router-link class="nav-link" to="/patients">All Patients</router-link>
                     </li>
                     <li class="nav-item" v-if="role === 'doctor'">
-                        <router-link class="nav-link" to="/patient_history">Patient History</router-link>
-                    </li>
-                    <li class="nav-item" v-if="role === 'doctor'">
-                        <router-link class="nav-link" to="/casepapers">All complaints</router-link>
+                        <router-link class="nav-link" to="/casepapers">All Complaints</router-link>
                     </li>
 
+                    <!-- Doctor Search -->
                     <li class="nav-item" v-if="role === 'doctor'">
-                    <form @submit.prevent="onSearchfordoctor" class="d-flex align-items-center">
-                        <input type="text"  class="form-control me-2" v-model="searchQuery" placeholder="Search patient info" />
-                        <select class="form-select me-2" v-model="searchType" required>
-                            <option value="professionals">Patient name</option>
-                            <option value="professionals_pincode">Pincode</option>
-                            <option value="services">complaints</option>
-                        </select>
-                        <button type="submit" class="btn btn-info">Search</button>
-                    </form>
+                        <form @submit.prevent="handleDoctorSearch" class="d-flex align-items-center">
+                            <input v-model="searchQuery" class="form-control me-2" placeholder="Search patients or casepapers" />
+                            <select v-model="searchType" class="form-select me-2">
+                                <option value="name">Name</option>
+                                <option value="pincode">Pincode</option>
+                                <option value="symptoms">Symptoms</option>
+                                <option value="diagnosis">Diagnosis</option>
+                                <option value="prescription">Prescription</option>
+                            </select>
+                            <button type="submit" class="btn btn-info">Search</button>
+                        </form>
                     </li>
-                
-                </ul> 
+                </ul>
 
                 <!-- Authentication Controls -->
                 <ul class="navbar-nav ml-auto">
@@ -73,21 +69,16 @@ export default {
                         <router-link class="nav-link" to="/user-login">Login</router-link>
                     </li>
                     <li class="nav-item" v-if="!isAuthenticated">
-                        <router-link class="nav-link" to="/doctor-signup">New doctor?</router-link>
+                        <router-link class="nav-link" to="/doctor-signup">New Doctor?</router-link>
                     </li>
                     <li class="nav-item" v-if="!isAuthenticated">
                         <router-link class="nav-link" to="/service-professional-signup">New Professional?</router-link>
                     </li>
-
-
-                    
-
                     <li class="nav-item" v-if="role === 'doctor'">
-                        <router-link class="nav-link" to="/doctor-profile" >
+                        <router-link class="nav-link" to="/doctor-profile">
                             <img src="/static/components/images/user.png" width="30" height="30">
                         </router-link>
                     </li>
-
                     <li class="nav-item" v-if="isAuthenticated">
                         <button class="btn btn-outline-danger" @click="logout">Logout</button>
                     </li>
@@ -103,7 +94,7 @@ export default {
             isAuthenticated: localStorage.getItem("auth-token") !== null,
             isActive: localStorage.getItem("active") === "true",
             searchQuery: '',
-            searchType: 'professionals'
+            searchType: 'professionals'  // Default value
         };
     },
 
@@ -112,13 +103,12 @@ export default {
             localStorage.clear();
             this.$router.push("/user-login");
         },
-        
+
         onSearch() {
             if (!this.searchQuery || !this.searchType) {
                 alert("Please enter a search query and select a search type.");
                 return;
             }
-            
             this.$router.push({
                 path: '/search',
                 query: {
@@ -128,29 +118,13 @@ export default {
             });
         },
 
-        onSearchfordoctor() {
+        handleDoctorSearch() {
             if (!this.searchQuery || !this.searchType) {
                 alert("Please enter a search query.");
                 return;
             }
-            
             this.$router.push({
-                path: '/search-for-doctor',
-                query: {
-                    type: this.searchType,
-                    query: this.searchQuery
-                }
-            });
-        },
-
-        onSearchforprof() {
-            if (!this.searchQuery || !this.searchType) {
-                alert("Please enter a search query.");
-                return;
-            }
-            
-            this.$router.push({
-                path: '/search-for-prof',
+                path: '/search-for-doctor',  // ✅ route stays the same
                 query: {
                     type: this.searchType,
                     query: this.searchQuery

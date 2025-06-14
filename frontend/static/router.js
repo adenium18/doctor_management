@@ -3,7 +3,7 @@ import Login from "./components/Login.js";
 import appinfo from "./components/appinfo.js"
 import AdminHome from "./components/AdminHome.js";
 import AllComplaints from "./components/AllComplaints.js";
-import PatientProfile from "./components/PatientProfile.js";
+import SearchDoctorResults from "./components/SearchDoctorResults.js";
 import PatientHistory from "./components/PatientHistory.js";
 import DoctorSignup from "./components/DoctorSignup.js";
 import Patients from "./components/Patients.js"
@@ -23,7 +23,7 @@ const routes = [
     { path: "/user-login", component: Login },    
     { path: "/doctor-signup", component: DoctorSignup},
     { path: '/patient_history', component: PatientHistory},
-    { path: '/patient_profile', component: PatientProfile},
+    { path: '/search-for-doctor', component: SearchDoctorResults},
     { path: '/all_complaints', component: AllComplaints},
     { path: '/patients', component: Patients},
     { path: '/casepapers', component: Casepaper}
