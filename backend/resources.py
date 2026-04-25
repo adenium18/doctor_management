@@ -107,7 +107,7 @@ class PatientAPI(Resource):
             return {"message": f"Invalid date format for dob. Use YYYY-MM-DD. Error: {str(e)}"}, 400
 
         new_patient = Patient(
-            full_name=args.full_name,
+            full_name=args.full_name.strip(),
             address=args.address,
             pincode=args.pincode,
             dob=args.dob,
@@ -118,6 +118,7 @@ class PatientAPI(Resource):
         )
         db.session.add(new_patient)
         db.session.commit()
+        db.session.refresh(new_patient)
         return {"message": "Patient profile created successfully", "patient_id": new_patient.id}, 201
 
 class  UpdatePatient(Resource):
@@ -128,8 +129,17 @@ class  UpdatePatient(Resource):
     def post(self, id):
         patients=Patient.query.get(id)
         args=parser1.parse_args()
-        patients.full_name=args.full_name
+        age = patients.age  # keep existing age by default
+        if args.dob:
+            try:
+                dob = datetime.strptime(args.dob, "%Y-%m-%d").date()
+                today = date.today()
+                age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            except:
+                pass
+        patients.full_name=args.full_name.strip()
         patients.address=args.address
+        patients.age=age,
         patients.pincode=args.pincode
         patients.dob=args.dob
         patients.weight=args.weight
@@ -231,7 +241,8 @@ casepaper_parser.add_argument("doctor_id", type=int, required=True, help="Doctor
 casepaper_parser.add_argument("symptoms", type=str, required=True, help="Symptoms are required")
 casepaper_parser.add_argument("diagnosis", type=str, required=True, help="Diagnosis is required")
 casepaper_parser.add_argument("prescription", type=str, required=True, help="Prescription is required")
-
+casepaper_parser.add_argument("charges", type=int, required=False, default=150, help="Consultation charges")
+ 
 casepaper_fields={
     "id":fields.Integer,
     "patient_id": fields.Integer,
@@ -295,7 +306,7 @@ class CasepaperAPI(Resource):
             args = casepaper_parser.parse_args()
             print("Parsed Args:", args)
 
-            current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            #current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
             new_casepaper = Casepaper(
                 patient_id=args.patient_id,
@@ -303,7 +314,8 @@ class CasepaperAPI(Resource):
                 symptoms=args.symptoms,
                 diagnosis=args.diagnosis,
                 prescription=args.prescription,
-                created_at=current_date,
+                charges      = args.charges or 150,
+            
             )
             db.session.add(new_casepaper)
             db.session.commit()
@@ -319,3 +331,4 @@ class CasepaperAPI(Resource):
 api.add_resource(PatientAPI,"/patients")
 api.add_resource(DoctorsAPI,"/doctors")
 api.add_resource(CasepaperAPI,"/casepaper")
+api.add_resource(UpdatePatient, "/patients/<int:id>")   # ✅ this line was missing!

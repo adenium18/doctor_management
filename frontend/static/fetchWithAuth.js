@@ -1,48 +1,57 @@
-import router from "./router.js"
+import router from "./router.js";
 
-export const fetchWithAuth = async (url = '/', options = {auth : true}) => {
-    const origin = window.location.origin;
-    
-    // Parse the stored user to get the authentication token
-    const user = JSON.parse(localStorage.getItem('user'));
-    const authToken = user?.['token']; // Get the auth token, if it exists
-  
-    // If authentication is required and no token is found, handle accordingly
-    if (options.auth && !authToken) {
-      console.error('Authentication token is missing.');
-      // Optionally, redirect to login or return an error
+export const fetchWithAuth = async (url = '/', options = {}) => {
+  const origin = window.location.origin;
+
+  // ✅ Bug 1 fix — default auth to true safely without it being wiped by options spread
+  const requireAuth = options.auth !== false;
+
+  // Parse the stored user to get the authentication token
+  const user = JSON.parse(localStorage.getItem('user'));
+  const authToken = user?.['token'];
+
+  // If authentication is required and no token is found, redirect to login
+  if (requireAuth && !authToken) {
+    console.error('Authentication token is missing.');
+    router.push('/user-login');
+    return;
+  }
+
+  // ✅ Bug 2 fix — do NOT spread ...options at the end as it overwrites headers/body
+  const fetchOptions = {
+    method: options.method ?? 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(authToken ? { 'Authentication-Token': authToken } : {}),
+      ...(options.headers ?? {}),   // merge extra headers safely
+    },
+    mode: 'cors',
+  };
+
+  // Only attach body for non-GET requests
+  if (options.body && fetchOptions.method !== 'GET') {
+    fetchOptions.body = JSON.stringify(options.body);
+  }
+
+  try {
+    const res = await fetch(`${origin}${url}`, fetchOptions);
+
+    // ✅ Bug 3 fix — only redirect on 401/403 (auth failures), not 405
+    if (res.status === 401 || res.status === 403) {
+      console.error(`Auth error ${res.status} on ${url} — redirecting to login`);
       router.push('/user-login');
       return;
     }
-  
-    // Build the full request options object
-    const fetchOptions = {
-      method: options.method ?? 'GET', // Default to GET method
-      headers: {
-        'Content-Type': 'application/json',
-        ...(authToken ? { 'Authentication-Token': authToken } : {}), // Include token if available
-        ...options.headers, // Merge additional headers if provided
-      },
-      ...(options.body ? { body: JSON.stringify(options.body) } : {}), // Stringify the body if provided
-      ...options, // Merge any other options provided
-      mode: 'cors',
-    };
-  
-    try {
-      // Make the fetch request
-      const res = await fetch(`${origin}${url}`, fetchOptions);
-  
-      // If response is forbidden, redirect to login
-      if (res.status === 403 || res.status === 405) {
-        router.push('/user-login');
-        return;
-      }
-  
-      return res; // Return the response object
-  
-    } catch (error) {
-      console.error('Fetch error:', error);
-      // Handle errors (e.g., network issues)
-      throw error;
+
+    // ✅ Log 405 clearly so it's easy to debug backend routing issues
+    if (res.status === 405) {
+      console.error(`405 Method Not Allowed: ${fetchOptions.method} ${url} — check backend route methods`);
     }
-  };
+
+    return res;
+
+  } catch (error) {
+    console.error('Fetch error:', error);
+    throw error;
+  }
+};

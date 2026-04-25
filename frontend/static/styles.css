@@ -1,21 +1,22 @@
-/* ✅ Global Container Styling */
+/* Global Container Styling */
 .container {
     max-width: 1200px;
     margin: auto;
     padding: 20px;
 }
 
-/* ✅ Global Grid Layout */
+/* Global Grid Layout */
 .row {
     margin-left: 0;
     margin-right: 0;
 }
 
-.g-4 {
-    gap: 20px;
+/* ✅ Bug 2 fix — scope gap only to grid/flex contexts, not globally */
+.row.g-4 > * {
+    padding: 10px;
 }
 
-/* ✅ Card Styling for All Pages */
+/* Card Styling for All Pages */
 .card {
     border-radius: 10px;
     overflow: hidden;
@@ -29,19 +30,19 @@
     box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-/* ✅ Card Titles */
+/* Card Titles */
 .card-title {
     font-weight: bold;
     color: #007bff;
 }
 
-/* ✅ Card Text */
+/* Card Text */
 .card-text {
     font-size: 14px;
     color: #555;
 }
 
-/* ✅ Button Styling for Consistency */
+/* Button Styling for Consistency */
 .btn-outline-success {
     font-weight: bold;
     border-radius: 8px;
@@ -64,23 +65,58 @@
     color: white;
 }
 
-/* ✅ Centered Text for Consistency */
+/* Centered Text */
 .text-center {
     text-align: center;
 }
 
-/* ✅ Consistent Heading Styling */
+/* Consistent Heading Styling */
 h1, h2, h3 {
     font-family: "Arial", sans-serif;
     font-weight: bold;
 }
 
-/* ✅ Navbar Consistency */
+/* Navbar */
 .navbar {
     box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* ✅ Responsive Adjustments */
+/* ✅ Bug 3 fix — custom-hr was used in DoctorHome.js but never defined */
+.custom-hr {
+    border: none;
+    border-top: 2px solid #007bff;
+    margin: 16px 0;
+    opacity: 0.4;
+}
+
+/* Welcome Text */
+.welcome-text {
+    color: #ff5733;
+    font-size: 1.5rem;
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+/* Make tables full-width */
+.table {
+    width: 100%;
+    max-width: 100%;
+    table-layout: auto;
+}
+
+/* Table cell spacing */
+th, td {
+    padding: 12px;
+    text-align: center;
+}
+
+/* Action button spacing */
+.btn-sm {
+    font-size: 14px;
+    padding: 6px 10px;
+    margin: 2px;
+}
+
+/* Responsive Adjustments */
 @media (max-width: 768px) {
     .btn {
         width: 100%;
@@ -88,29 +124,6 @@ h1, h2, h3 {
     .card {
         margin-bottom: 10px;
     }
-}
-/* ✅ Make tables full-width */
-.table {
-    width: 100%;
-    max-width: 100%;
-    table-layout: auto;
-}
-
-/* ✅ Ensure spacing inside the table */
-th, td {
-    padding: 12px;
-    text-align: center;
-}
-
-/* ✅ Add space between action buttons */
-.btn-sm {
-    font-size: 14px;
-    padding: 6px 10px;
-    margin: 2px;
-}
-
-/* ✅ Improve table spacing */
-@media (max-width: 768px) {
     .table {
         font-size: 12px;
     }
@@ -118,9 +131,4 @@ th, td {
         padding: 8px;
     }
 }
-/* 🎨 Customize Welcome Text Color */
-.welcome-text {
-    color: #ff5733; /* 🔥 Change this to any color */
-    font-size: 1.5rem;
-    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.2);
-}
+

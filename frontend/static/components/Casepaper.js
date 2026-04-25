@@ -1,6 +1,10 @@
 export default {
   template: `
-    <div class="p-3">
+    <div class="container p-3">
+      <h2 class="text-center fw-bold mb-4">Casepapers</h2>
+      <hr class="custom-hr">
+
+      <!-- Filters -->
       <div class="mb-3 row">
         <div class="col-md-3">
           <input v-model="filters.query" class="form-control" placeholder="Search name, medicine, disease" />
@@ -18,48 +22,55 @@ export default {
           <input v-model="filters.year" type="number" class="form-control" placeholder="Year" />
         </div>
         <div class="col-md-3">
-          <button @click="applyFilters" class="btn btn-info">Apply Filters</button>
-          <button @click="clearFilters" class="btn btn-secondary ms-2">Reset</button>
+          <button @click="clearFilters" class="btn btn-secondary">Reset</button>
         </div>
       </div>
 
-      <div v-if="filteredCasepapers.length > 0">
+      <!-- Table -->
+      <div class="table-responsive" v-if="filteredCasepapers.length > 0">
         <table class="table table-bordered table-striped">
-          <thead class="thead-dark">
+          <thead class="table-dark">
             <tr>
               <th>Patient Name</th>
               <th>Age</th>
-              <th>Address</th>
               <th>Sex</th>
-              <th>Weight</th>
+              <th>Address</th>
+              <th>Pincode</th>
+              <th>Weight (kg)</th>
               <th>Phone</th>
-              <th>Date of Arrival</th>
+              <th>Date</th>
               <th>Symptoms</th>
               <th>Diagnosis</th>
               <th>Prescription</th>
+              <th>Charges (₹)</th>  <!-- ✅ Bug 2 fix — charges column added -->
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="casepaper in filteredCasepapers" :key="casepaper.id">
-              <td v-html="highlightMatch(casepaper.patient_name)"></td>
-              <td>{{ casepaper.age }} Yrs</td>
-              <td>{{ casepaper.address }}</td>
-              <td>{{ casepaper.sex }}</td>
-              <td>{{ casepaper.weight }}</td>
-              <td>{{ casepaper.phone }}</td>
-              <td>{{ casepaper.created_at }}</td>
-              <td v-html="highlightMatch(casepaper.symptoms)"></td>
-              <td v-html="highlightMatch(casepaper.diagnosis)"></td>
-              <td v-html="highlightMatch(casepaper.prescription)"></td>
+            <tr v-for="casepaper in filteredCasepapers" :key="casepaper.casepaper_id">
+              <td>{{ casepaper.full_name }}</td>
+              <td>{{ casepaper.age || 'N/A' }}</td>
+              <td>{{ casepaper.sex || 'N/A' }}</td>
+              <td>{{ casepaper.address || 'N/A' }}</td>
+              <td>{{ casepaper.pincode || 'N/A' }}</td>
+              <td>{{ casepaper.weight || 'N/A' }}</td>
+              <td>{{ casepaper.phone || 'N/A' }}</td>
+              <td>{{ formatDate(casepaper.created_at) }}</td>
+              <td>{{ casepaper.symptoms }}</td>
+              <td>{{ casepaper.diagnosis }}</td>
+              <td>{{ casepaper.prescription }}</td>
+              <td>
+                <span class="badge bg-success fs-6">₹ {{ casepaper.charges ?? 150 }}</span>
+              </td>
               <td>
                 <button class="btn btn-sm btn-secondary" @click="openEditModal(casepaper)">Edit</button>
-                <button class="btn btn-sm btn-danger" @click="openDeleteModal(casepaper.id)">Delete</button>
+                <button class="btn btn-sm btn-danger"    @click="openDeleteModal(casepaper.casepaper_id)">Delete</button>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
+
       <div v-else class="text-center text-muted mt-3">
         No casepaper information matches the filters.
       </div>
@@ -74,17 +85,29 @@ export default {
             </div>
             <div class="modal-body">
               <form @submit.prevent="submitCasepaperEdit">
-                <div class="form-group">
+                <div class="form-group mb-2">
                   <label>Symptoms</label>
                   <input v-model="editCasepaper.symptoms" class="form-control" required />
                 </div>
-                <div class="form-group">
+                <div class="form-group mb-2">
                   <label>Diagnosis</label>
                   <input v-model="editCasepaper.diagnosis" class="form-control" required />
                 </div>
-                <div class="form-group">
+                <div class="form-group mb-3">
                   <label>Prescription</label>
                   <textarea v-model="editCasepaper.prescription" class="form-control" rows="3"></textarea>
+                </div>
+                <!-- ✅ Bug 3 fix — charges editable in edit modal -->
+                <div class="form-group mb-3">
+                  <label>Charges (₹)</label>
+                  <input
+                    v-model.number="editCasepaper.charges"
+                    type="number"
+                    class="form-control"
+                    min="0"
+                    placeholder="e.g. 150"
+                    required
+                  />
                 </div>
                 <button type="submit" class="btn btn-primary">Update</button>
               </form>
@@ -99,7 +122,7 @@ export default {
           <div class="modal-content">
             <div class="modal-body text-center">
               <p>Are you sure you want to delete this casepaper?</p>
-              <button class="btn btn-danger" @click="deleteCasepaper">Yes, Delete</button>
+              <button class="btn btn-danger"    @click="deleteCasepaper">Yes, Delete</button>
               <button class="btn btn-secondary" data-dismiss="modal">Cancel</button>
             </div>
           </div>
@@ -107,65 +130,67 @@ export default {
       </div>
     </div>
   `,
+
   data() {
     return {
       token: localStorage.getItem('auth-token'),
-      role: localStorage.getItem('role'),
       casepapers: [],
-      editCasepaper: { id: null, symptoms: '', diagnosis: '', prescription: '' },
+      editCasepaper: {
+        id: null, symptoms: '', diagnosis: '', prescription: '', charges: 150
+      },
       casepaperToDeleteId: null,
-      filters: {
-        query: '',
-        date: '',
-        month: '',
-        year: ''
-      }
+      filters: { query: '', date: '', month: '', year: '' }
     };
   },
+
   computed: {
     filteredCasepapers() {
       const q = this.filters.query.trim().toLowerCase();
       return this.casepapers.filter(c => {
-        const created = new Date(c.created_at);
-        const matchesQuery =
-          !q || [c.patient_name, c.symptoms, c.diagnosis, c.prescription].some(f => f?.toLowerCase().includes(q));
-        const matchesDate = !this.filters.date || c.created_at.startsWith(this.filters.date);
+        const created      = new Date(c.created_at);
+        const matchesQuery = !q || [c.full_name, c.symptoms, c.diagnosis, c.prescription]
+          .some(f => f?.toLowerCase().includes(q));
+        const matchesDate  = !this.filters.date  || c.created_at?.startsWith(this.filters.date);
         const matchesMonth = !this.filters.month || created.getMonth() + 1 === parseInt(this.filters.month);
-        const matchesYear = !this.filters.year || created.getFullYear() === parseInt(this.filters.year);
+        const matchesYear  = !this.filters.year  || created.getFullYear() === parseInt(this.filters.year);
         return matchesQuery && matchesDate && matchesMonth && matchesYear;
       });
     }
   },
+
   methods: {
     async fetchcasepapers() {
       try {
-        const res = await fetch('/api/casepaper', {
+        const res = await fetch('/api/casepapers', {
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
             'Authentication-Token': this.token
           }
         });
         const data = await res.json();
         if (res.ok) {
-          this.casepapers = data.casepaper;
+          this.casepapers = Array.isArray(data) ? data : [];
         }
       } catch (err) {
         console.error("Error fetching casepapers:", err);
       }
     },
+
     openEditModal(casepaper) {
       this.editCasepaper = {
-        id: casepaper.id,
-        symptoms: casepaper.symptoms,
-        diagnosis: casepaper.diagnosis,
-        prescription: casepaper.prescription
+        id:           casepaper.casepaper_id,
+        symptoms:     casepaper.symptoms,
+        diagnosis:    casepaper.diagnosis,
+        prescription: casepaper.prescription,
+        charges:      casepaper.charges ?? 150   // ✅ prefill charges
       };
       $('#editCasepaperModal').modal('show');
     },
+
     async submitCasepaperEdit() {
       try {
         const res = await fetch(`/api/casepaper/${this.editCasepaper.id}`, {
-          method: 'POST',
+          method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'Authentication-Token': this.token
@@ -183,17 +208,17 @@ export default {
         console.error("Edit error:", error);
       }
     },
+
     openDeleteModal(id) {
       this.casepaperToDeleteId = id;
       $('#deleteCasepaperModal').modal('show');
     },
+
     async deleteCasepaper() {
       try {
         const res = await fetch(`/delete/casepaper/${this.casepaperToDeleteId}`, {
           method: "DELETE",
-          headers: {
-            'Authentication-Token': this.token
-          }
+          headers: { 'Authentication-Token': this.token }
         });
         if (res.ok) {
           alert("Casepaper deleted successfully.");
@@ -206,19 +231,19 @@ export default {
         console.error("Delete error:", error);
       }
     },
-    applyFilters() {
-      // Trigger computed filter update
-    },
+
     clearFilters() {
       this.filters = { query: '', date: '', month: '', year: '' };
     },
-    highlightMatch(text) {
-      const q = this.filters.query?.trim();
-      if (!q) return text;
-      const regex = new RegExp(`(${q})`, 'gi');
-      return text?.replace(regex, '<mark>$1</mark>') || '';
+
+    formatDate(dateTime) {
+      if (!dateTime) return 'N/A';
+      return new Date(dateTime).toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      });
     }
   },
+
   async mounted() {
     await this.fetchcasepapers();
   }

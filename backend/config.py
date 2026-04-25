@@ -1,6 +1,7 @@
 class Config():
     DEBUG = False
-    SQL_ALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_TRACK_MODIFICATIONS = False   # ✅ fixed typo (was SQL_ALCHEMY_TRACK_MODIFICATIONS)
+
 
 class LocalDevelopmentConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///database.sqlite3"
@@ -11,10 +12,10 @@ class LocalDevelopmentConfig(Config):
     SECURITY_TOKEN_AUTHENTICATION_HEADER = 'Authentication-Token'
     SECURITY_TOKEN_MAX_AGE = 3600
 
-  
-    # cache specific
-    CACHE_TYPE =  "RedisCache"
-    CACHE_DEFAULT_TIMEOUT = 30
+    # Cache config
+    CACHE_TYPE = "RedisCache"
+    CACHE_REDIS_HOST = "localhost"           # ✅ was missing
     CACHE_REDIS_PORT = 6379
+    CACHE_DEFAULT_TIMEOUT = 30
 
     WTF_CSRF_ENABLED = False

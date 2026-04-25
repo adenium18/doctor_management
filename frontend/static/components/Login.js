@@ -18,57 +18,55 @@ export default {
                         <button class="btn btn-primary" type="submit">Login</button>
                     </div>
                 </form>
-                <div class="mt-3 text-center">
-                    <router-link to="/doctor-signup" class="btn btn-link">sign up for New Account</router-link>
-                </div>
             </div>
         </div>
     </div>
     `,
+
     data() {
         return {
-            cred: {
-                email: "",
-                password: ""
-            },
+            cred:  { email: "", password: "" },
             error: null
         };
     },
+
     methods: {
         async login() {
+            this.error = null;
             try {
-                const res = await fetch("/user-login", {
-                    method: "POST",
+                const res  = await fetch("/user-login", {
+                    method:  "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(this.cred)
+                    body:    JSON.stringify(this.cred)
                 });
                 const data = await res.json();
-                this.$store.commit('setUser');
+
                 if (res.ok) {
-                    localStorage.setItem("auth-token", data.token);
-                    localStorage.setItem("role", data.role);
-                    localStorage.setItem("full_name", data.full_name);
-                    localStorage.setItem("user_id", data.user_id);
-                    console.log("Login successful, User ID:", data.user_id);  // ✅ Debugging log
+                    // ✅ Store all keys including doctor_id before committing to store
+                    localStorage.setItem("auth-token",  data.token);
+                    localStorage.setItem("role",        data.role);
+                    localStorage.setItem("full_name",   data.full_name);
+                    localStorage.setItem("user_id",     data.user_id);
+                    localStorage.setItem("doctor_id",   data.doctor_id);  // ✅ store doctor_id separately
 
-                    // Redirect based on role
-                    if (data.role === "admin") {
-                        this.$router.push("/");  
-                        
-                    }
-                    else if (data.role === "doctor") {
-                        this.$router.push("/");  
-                        
-                    }
+                    // Store full user object for store.js setUser()
+                    localStorage.setItem("user", JSON.stringify({
+                        token:     data.token,
+                        role:      data.role,
+                        user_id:   data.user_id,
+                        doctor_id: data.doctor_id,                        // ✅ include in user object too
+                        full_name: data.full_name
+                    }));
 
-                    
-                    
+                    this.$store.commit('setUser');
+                    this.$router.push("/");
+
                 } else {
                     this.error = data.message || "Invalid credentials";
                 }
             } catch (err) {
                 this.error = "Server error. Please try again later.";
             }
-        },
+        }
     }
 };

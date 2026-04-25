@@ -29,26 +29,43 @@ export default {
 
       <div v-if="patientNotFound" class="alert alert-warning">
         No matching patient found. You can create a new one.
-        <button class="btn btn-sm btn-outline-primary mt-2" @click="showForm = true">Create New Patient & Casepaper</button>
+        <button class="btn btn-sm btn-outline-primary mt-2" @click="showForm = true; forceCreateNew = true">
+          Create New Patient & Casepaper
+        </button>
       </div>
     </div>
 
-    <!-- Match Modal -->
-    <div class="modal fade" id="matchingPatientsModal" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
+    <!-- Match Modal — shown for ALL search results (1 or more) -->
+    <div class="modal fade" id="matchingPatientsModal" tabindex="-1" role="dialog" aria-hidden="true">
       <div class="modal-dialog" role="document">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Select a Patient</h5>
+            <h5 class="modal-title">Patient Found</h5>
             <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
           </div>
           <div class="modal-body">
-            <p>Multiple patients found with name <strong>{{ form.full_name }}</strong>:</p>
-            <ul class="list-group">
-              <li class="list-group-item" v-for="p in matchingPatients" :key="p.id">
-                {{ p.full_name }} | DOB: {{ p.dob }} | Phone: {{ p.phone }}
-                <button class="btn btn-sm btn-primary float-end" @click="selectPatient(p)">Select</button>
+            <p>
+              <span v-if="matchingPatients.length === 1">Patient found matching <strong>{{ form.full_name }}</strong>:</span>
+              <span v-else>Multiple patients found matching <strong>{{ form.full_name }}</strong>:</span>
+            </p>
+
+            <ul class="list-group mb-3">
+              <li class="list-group-item d-flex justify-content-between align-items-center"
+                  v-for="p in matchingPatients" :key="p.id">
+                <div>
+                  <strong>{{ p.full_name }}</strong><br>
+                  <small>
+                    DOB: {{ p.dob || 'N/A' }} |
+                    Phone: {{ p.phone || 'N/A' }} |
+                    Last Visit: {{ p.last_visit ? p.last_visit.slice(0,10) : 'Never' }}
+                  </small>
+                </div>
+                <button class="btn btn-sm btn-success ms-2" @click="selectPatient(p)">
+                  Add Casepaper
+                </button>
               </li>
             </ul>
+
             <hr>
             <button class="btn btn-outline-secondary w-100 mt-2" @click="createNewPatientWithSameName">
               ➕ Create New Patient with This Name
@@ -61,16 +78,21 @@ export default {
     <!-- Casepaper Form -->
     <div v-if="showForm" class="container mb-5">
       <div class="card"><div class="card-body">
-        <h4 class="card-title">Casepaper Entry</h4>
+        <h4 class="card-title">
+          Casepaper Entry
+          <span v-if="foundPatient" class="badge bg-success ms-2">Existing: {{ foundPatient.full_name }}</span>
+          <span v-else class="badge bg-warning ms-2">New Patient</span>
+        </h4>
         <form @submit.prevent="handleSubmit">
           <div class="row mb-3">
             <div class="col-md-4">
               <label class="form-label">Patient Name</label>
-              <input type="text" class="form-control" v-model="form.full_name">
+              <input type="text" class="form-control" v-model="form.full_name" :readonly="!!foundPatient">
             </div>
             <div class="col-md-4">
               <label class="form-label">DOB</label>
-              <input type="date" class="form-control" v-model="form.dob" :max="today" min="1900-01-01">
+              <input type="date" class="form-control" v-model="form.dob"
+                     :max="today" min="1900-01-01" :readonly="!!foundPatient">
             </div>
             <div class="col-md-4">
               <label class="form-label">Age</label>
@@ -81,8 +103,8 @@ export default {
           <div class="row mb-3">
             <div class="col-md-4">
               <label class="form-label">Gender</label>
-              <select class="form-select" v-model="form.sex">
-                <option disabled selected>Select</option>
+              <select class="form-select" v-model="form.sex" :disabled="!!foundPatient">
+                <option disabled value="">Select</option>
                 <option>Male</option>
                 <option>Female</option>
                 <option>Other</option>
@@ -94,19 +116,56 @@ export default {
             </div>
             <div class="col-md-4">
               <label class="form-label">Phone</label>
-              <input type="text" class="form-control" v-model="form.phone" :class="{ 'is-invalid': phoneError }">
+              <input type="text" class="form-control" v-model="form.phone"
+                     :class="{ 'is-invalid': phoneError }" :readonly="!!foundPatient">
               <div v-if="phoneError" class="invalid-feedback">Phone number already exists.</div>
             </div>
           </div>
 
-          <div class="mb-3"><label>Address</label><input class="form-control" v-model="form.address" /></div>
-          <div class="mb-3"><label>Pincode</label><input class="form-control" v-model="form.pincode" /></div>
+          <div class="mb-3">
+            <label>Address</label>
+            <input class="form-control" v-model="form.address" :readonly="!!foundPatient" />
+          </div>
+          <div class="mb-3">
+            <label>Pincode</label>
+            <input class="form-control" v-model="form.pincode" :readonly="!!foundPatient" />
+          </div>
 
-          <div class="mb-3"><label>Symptoms</label><textarea class="form-control" v-model="form.symptoms"></textarea></div>
-          <div class="mb-3"><label>Diagnosis</label><textarea class="form-control" v-model="form.diagnosis"></textarea></div>
-          <div class="mb-3"><label>Prescription</label><textarea class="form-control" v-model="form.prescription"></textarea></div>
+          <hr>
+          <h6 class="text-muted">Clinical Notes</h6>
+
+          <!-- ✅ Charges prominently at top of clinical section -->
+          <div class="alert alert-success py-2 mb-3 d-flex align-items-center gap-3">
+            <label class="fw-bold mb-0 text-success" style="white-space:nowrap">
+              💰 Consultation Charges (₹)
+            </label>
+            <input
+              type="number"
+              class="form-control w-auto"
+              v-model.number="form.charges"
+              min="0"
+              placeholder="e.g. 150"
+              required
+              style="max-width:140px; font-size:1.1rem; font-weight:bold;"
+            />
+            <small class="text-muted">Default: ₹150. Change if needed.</small>
+          </div>
+
+          <div class="mb-3">
+            <label>Symptoms</label>
+            <textarea class="form-control" v-model="form.symptoms" required></textarea>
+          </div>
+          <div class="mb-3">
+            <label>Diagnosis</label>
+            <textarea class="form-control" v-model="form.diagnosis" required></textarea>
+          </div>
+          <div class="mb-3">
+            <label>Prescription</label>
+            <textarea class="form-control" v-model="form.prescription" required></textarea>
+          </div>
 
           <button class="btn btn-primary">Save Casepaper</button>
+          <button type="button" class="btn btn-secondary ms-2" @click="resetForm">Cancel</button>
         </form>
       </div></div>
     </div>
@@ -143,7 +202,8 @@ export default {
         pincode: '',
         symptoms: '',
         diagnosis: '',
-        prescription: ''
+        prescription: '',
+        charges: 150        // ✅ default charges
       }
     };
   },
@@ -154,11 +214,25 @@ export default {
       const td = new Date();
       const bd = new Date(this.form.dob);
       let age = td.getFullYear() - bd.getFullYear();
-      if (td.getMonth() < bd.getMonth() || (td.getMonth() === bd.getMonth() && td.getDate() < bd.getDate())) {
+      if (
+        td.getMonth() < bd.getMonth() ||
+        (td.getMonth() === bd.getMonth() && td.getDate() < bd.getDate())
+      ) {
         age--;
       }
       this.form.age = age;
       return age;
+    }
+  },
+
+  async mounted() {
+    try {
+      const res = await fetch("/user-details", {
+        headers: { "Authentication-Token": this.token }
+      });
+      this.user = await res.json();
+    } catch (err) {
+      console.error("Failed to load user details:", err);
     }
   },
 
@@ -170,31 +244,36 @@ export default {
       this.showForm = false;
       this.forceCreateNew = false;
 
+      if (!this.form.full_name.trim()) {
+        alert("Please enter a patient name to search.");
+        return;
+      }
+
       try {
-        const res = await fetch(`/api/patient/search?query=${encodeURIComponent(this.form.full_name)}`, {
-          headers: { "Authentication-Token": this.token }
-        });
+        const res = await fetch(
+          `/api/patient/search?query=${encodeURIComponent(this.form.full_name.trim())}`,
+          { headers: { "Authentication-Token": this.token } }
+        );
         const data = await res.json();
 
-        if (Array.isArray(data) && data.length > 1) {
+        if (Array.isArray(data) && data.length >= 1) {
+          // 1 or many — always show modal so doctor can choose
           this.matchingPatients = data;
           $("#matchingPatientsModal").modal("show");
-        } else if (data && data.id) {
-          this.foundPatient = data;
-          this.prefillForm(data);
         } else {
           this.patientNotFound = true;
         }
       } catch (err) {
         console.error("Search error:", err);
+        alert("Search failed. Please try again.");
       }
     },
 
     selectPatient(p) {
       this.foundPatient = p;
+      this.forceCreateNew = false;
       this.prefillForm(p);
       this.showForm = true;
-      this.forceCreateNew = false;
       $("#matchingPatientsModal").modal("hide");
     },
 
@@ -208,21 +287,24 @@ export default {
     prefillForm(data) {
       this.form = {
         ...this.form,
-        full_name: data.full_name,
-        dob: data.dob,
-        sex: data.sex,
+        full_name: data.full_name || '',
+        dob: data.dob || '',
+        sex: data.sex || '',
         phone: data.phone || '',
         weight: data.weight || '',
         address: data.address || '',
         pincode: data.pincode || ''
       };
-      this.calculatedAge;
     },
 
     async handleSubmit() {
+      this.phoneError = false;
+
       try {
+        let patientId;
+
         if (!this.forceCreateNew && this.foundPatient) {
-          var patientId = this.foundPatient.id;
+          patientId = this.foundPatient.id;
         } else {
           const res = await fetch("/api/patients", {
             method: "POST",
@@ -231,7 +313,7 @@ export default {
               "Authentication-Token": this.token
             },
             body: JSON.stringify({
-              full_name: this.form.full_name,
+              full_name: this.form.full_name.trim(),
               dob: this.form.dob,
               age: this.form.age,
               weight: this.form.weight,
@@ -243,18 +325,18 @@ export default {
           });
 
           const result = await res.json();
+
           if (!res.ok) {
             if (result.error && result.error.toLowerCase().includes("phone")) {
               this.phoneError = true;
               return;
-            } else {
-              alert(result.error || "Failed creating patient");
-              return;
             }
+            alert(result.error || "Failed to create patient.");
+            return;
           }
 
-          patientId = result.patient_id || result.id;
-          if (!patientId) throw new Error("No patient ID returned.");
+          patientId = result.id || result.patient_id;
+          if (!patientId) throw new Error("No patient ID returned from server.");
         }
 
         const caseRes = await fetch("/api/casepaper", {
@@ -265,21 +347,23 @@ export default {
           },
           body: JSON.stringify({
             patient_id: patientId,
-            doctor_id: localStorage.getItem("user_id"),
+            doctor_id: parseInt(localStorage.getItem("doctor_id")),  // ✅ use doctor_id not user_id
             symptoms: this.form.symptoms,
             diagnosis: this.form.diagnosis,
-            prescription: this.form.prescription
+            prescription: this.form.prescription,
+            charges: this.form.charges
           })
         });
 
         const caseData = await caseRes.json();
-        if (!caseRes.ok) throw new Error(caseData.error || "Failed saving casepaper");
+        if (!caseRes.ok) throw new Error(caseData.error || "Failed to save casepaper.");
 
-        alert("Casepaper saved!");
+        alert("Casepaper saved successfully!");
         this.resetForm();
+
       } catch (err) {
-        console.error(err);
-        alert(`Oops: ${err.message}`);
+        console.error("Submit error:", err);
+        alert(`Error: ${err.message}`);
       }
     },
 
@@ -287,13 +371,14 @@ export default {
       this.form = {
         full_name: '', dob: '', age: '', weight: '',
         sex: '', phone: '', address: '', pincode: '',
-        symptoms: '', diagnosis: '', prescription: ''
+        symptoms: '', diagnosis: '', prescription: '', charges: 150
       };
       this.foundPatient = null;
       this.patientNotFound = false;
       this.showForm = false;
       this.phoneError = false;
       this.forceCreateNew = false;
+      this.matchingPatients = [];
     }
   }
 };

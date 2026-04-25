@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-from flask_security import UserMixin,RoleMixin
+from flask_security import UserMixin, RoleMixin
 from datetime import datetime
 
 db = SQLAlchemy()
@@ -26,35 +26,48 @@ class User(db.Model, UserMixin):
     )
 
 class Casepaper(db.Model):
-    id = db.Column(db.Integer(), primary_key=True)
-    patient_id = db.Column(db.Integer(), db.ForeignKey('patient.id'))
-    doctor_id=db.Column(db.Integer(), db.ForeignKey('doctor.id'), nullable=False)
-    symptoms = db.Column(db.String())
-    diagnosis = db.Column(db.String())
+    id           = db.Column(db.Integer(), primary_key=True)
+    patient_id   = db.Column(db.Integer(), db.ForeignKey('patient.id'))
+    doctor_id    = db.Column(db.Integer(), db.ForeignKey('doctor.id'), nullable=False)
+    symptoms     = db.Column(db.String())
+    diagnosis    = db.Column(db.String())
     prescription = db.Column(db.String())
-    created_at = db.Column(db.String())
-    #charges = db.Column(db.Integer(), default=150)
-    patient = db.relationship("Patient", backref=db.backref('casepaper', lazy='dynamic'))
+    created_at   = db.Column(db.DateTime(), default=datetime.utcnow)
+    charges      = db.Column(db.Integer(), default=150)   # ✅ uncomment this line
+    patient = db.relationship("Patient",backref=db.backref('casepapers', lazy='dynamic', cascade='all, delete-orphan'))
 
-    
 class Doctor(db.Model):
     id = db.Column(db.Integer(), primary_key=True)
     full_name = db.Column(db.String(255))
     address = db.Column(db.String(255))
     degree = db.Column(db.String())
     user_id = db.Column(db.Integer(), db.ForeignKey("user.id"), unique=True)
-    user = db.relationship("User", backref=db.backref("doctors", uselist=False))
     active = db.Column(db.Boolean(), default=True)
+    user = db.relationship(
+        "User",
+        backref=db.backref("doctor", uselist=False)  # ✅ Bug 3 fix — singular "doctor" matches views.py usage
+    )
 
 class Patient(db.Model):
     id = db.Column(db.Integer(), primary_key=True)
     full_name = db.Column(db.String(255), nullable=False)
     address = db.Column(db.String(255))
     pincode = db.Column(db.String())
-    dob = db.Column(db.String(),nullable=False)
-    age = db.Column(db.Integer(),nullable=False)
+    dob = db.Column(db.String(), nullable=True)   # ✅ Bug 2 fix — allow null DOB
+    age = db.Column(db.Integer(), nullable=True)   # ✅ Bug 2 fix — allow null age
     weight = db.Column(db.Integer())
     sex = db.Column(db.String())
     phone = db.Column(db.String())
-    #date_of_arrival = db.Column(db.String(),nullable=False)
     active = db.Column(db.Boolean, default=True)
+
+
+class Expense(db.Model):
+    id          = db.Column(db.Integer(), primary_key=True)
+    doctor_id   = db.Column(db.Integer(), db.ForeignKey('doctor.id'), nullable=False)
+    title       = db.Column(db.String(255), nullable=False)
+    category    = db.Column(db.String(100), default="Other")  # Rent, Supplies, Equipment, Staff, Other
+    amount      = db.Column(db.Float(),  nullable=False)
+    date        = db.Column(db.String(), nullable=False)       # stored as YYYY-MM-DD string
+    description = db.Column(db.String(500), default="")
+
+    doctor = db.relationship("Doctor", backref=db.backref("expenses", lazy="dynamic"))

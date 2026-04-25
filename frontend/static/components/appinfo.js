@@ -1,49 +1,129 @@
 export default {
-  template: `
-  <div class="container-fluid">
-    <h1 class="text-center fw-bold mt-3">Welcome to Dr. A-to-Z 🏥</h1>
-    <hr class="custom-hr">
-    <h3 class="text-center text-success fw-bold mb-4">Your Companion for Smarter Patient Casepaper Management</h3>
+    template: `
+    <div class="container">
+        <h2 class="text-center fw-bold mb-4">All Casepapers</h2>
+        <hr class="custom-hr">
 
-    <div class="container mb-5">
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <h4 class="card-title">🩺 Why Dr. A-to-Z?</h4>
-          <p class="card-text">
-            Dr. A-to-Z is designed to help doctors and clinics effortlessly manage patient records and casepapers in a digital format.
-            With a simple and intuitive interface, you can store, retrieve, and update patient case history — anytime, anywhere.
-          </p>
-
-          <h5 class="mt-4">✨ Benefits:</h5>
-          <ul>
-            <li>Secure, digital storage of patient casepapers</li>
-            <li>Easy retrieval of patient history</li>
-            <li>Quick creation and editing of new entries</li>
-            <li>Access from multiple devices</li>
-          </ul>
-
-          <h5 class="mt-4">📘 Quick Guide to Using the App:</h5>
-          <ol>
-            <li>Use the <strong>“New Casepaper”</strong> section (from the menu) to create entries for new or existing patients.</li>
-            <li>View all previous records under the <strong>“Patient Records”</strong> section.</li>
-            <li>Click on a record to edit or review medical history.</li>
-          </ol>
-
-          <p class="mt-4 text-muted">
-            Note: You can always reach out to support if you need any help using the app.
-          </p>
+        <!-- Search & Filter Bar -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <input
+                    v-model="searchQuery"
+                    type="text"
+                    class="form-control"
+                    placeholder="Search by name, symptoms, diagnosis..."
+                    @input="fetchCasepapers"
+                />
+            </div>
+            <div class="col-md-2">
+                <input v-model="filterYear" type="number" class="form-control" placeholder="Year" @change="fetchCasepapers" />
+            </div>
+            <div class="col-md-2">
+                <input v-model="filterMonth" type="number" class="form-control" placeholder="Month (1-12)" min="1" max="12" @change="fetchCasepapers" />
+            </div>
+            <div class="col-md-2">
+                <input v-model="filterDay" type="number" class="form-control" placeholder="Day (1-31)" min="1" max="31" @change="fetchCasepapers" />
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-secondary w-100" @click="clearFilters">Clear</button>
+            </div>
         </div>
-      </div>
 
-      <div class="card text-center mt-5">
-        <div class="card-title pt-3">
-          <h4>Need Help?</h4>
+        <!-- Casepapers Table -->
+        <div class="table-responsive" v-if="casepapers.length">
+            <table class="table table-striped table-hover text-center">
+                <thead class="table-dark">
+                    <tr>
+                        <th>#</th>
+                        <th>Patient Name</th>
+                        <th>Pincode</th>
+                        <th>Symptoms</th>
+                        <th>Diagnosis</th>
+                        <th>Prescription</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(cp, index) in casepapers" :key="cp.casepaper_id">
+                        <td>{{ index + 1 }}</td>
+                        <td>{{ cp.full_name }}</td>
+                        <td>{{ cp.pincode || 'N/A' }}</td>
+                        <td>{{ cp.symptoms }}</td>
+                        <td>{{ cp.diagnosis }}</td>
+                        <td>{{ cp.prescription }}</td>
+                        <td>{{ formatDate(cp.created_at) }}</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
-        <div class="card-text pb-3">
-          <p>Contact us at <a href="mailto:medsupport@atozapp.com">medsupport@atozapp.com</a> for assistance.</p>
+
+        <div v-else-if="loading" class="text-center text-muted mt-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p>Loading casepapers...</p>
         </div>
-      </div>
+
+        <div v-else class="text-center text-danger mt-4">
+            No casepapers found.
+        </div>
     </div>
-  </div>
-  `
-}
+    `,
+
+    data() {
+        return {
+            token: localStorage.getItem('auth-token'),
+            casepapers: [],
+            searchQuery: '',
+            filterYear: '',
+            filterMonth: '',
+            filterDay: '',
+            loading: false,
+        };
+    },
+
+    methods: {
+        async fetchCasepapers() {
+            this.loading = true;
+            try {
+                // Build query string from active filters
+                const params = new URLSearchParams();
+                if (this.searchQuery.trim()) params.append('query', this.searchQuery.trim());
+                if (this.filterYear)          params.append('year',  this.filterYear);
+                if (this.filterMonth)         params.append('month', this.filterMonth);
+                if (this.filterDay)           params.append('day',   this.filterDay);
+
+                const res = await fetch(`/api/casepapers?${params.toString()}`, {
+                    headers: { 'Authentication-Token': this.token }
+                });
+
+                if (res.ok) {
+                    this.casepapers = await res.json();
+                } else {
+                    console.error('Failed to fetch casepapers');
+                }
+            } catch (err) {
+                console.error('Error fetching casepapers:', err);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        clearFilters() {
+            this.searchQuery = '';
+            this.filterYear  = '';
+            this.filterMonth = '';
+            this.filterDay   = '';
+            this.fetchCasepapers();
+        },
+
+        formatDate(dateTime) {
+            if (!dateTime) return 'N/A';
+            return new Date(dateTime).toLocaleDateString('en-IN', {
+                day: '2-digit', month: 'short', year: 'numeric'
+            });
+        }
+    },
+
+    async mounted() {
+        await this.fetchCasepapers();
+    }
+};
