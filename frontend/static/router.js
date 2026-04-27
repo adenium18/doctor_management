@@ -12,6 +12,9 @@ import Dashboard           from "./components/Dashboard.js";
 import Billing             from "./components/Billing.js";
 import ExpenseTracker      from "./components/ExpenseTracker.js";
 import Reports             from "./components/Reports.js";
+import FinanceDashboard    from "./components/FinanceDashboard.js";
+import ProfitLoss          from "./components/ProfitLoss.js";
+import DoctorProfile       from "./components/DoctorProfile.js";
 
 const routes = [
     // Public
@@ -30,6 +33,9 @@ const routes = [
     { path: "/billing",            component: Billing,             meta: { requiresAuth: true, doctorOnly: true } },
     { path: "/expenses",           component: ExpenseTracker,      meta: { requiresAuth: true, doctorOnly: true } },
     { path: "/reports",            component: Reports,             meta: { requiresAuth: true, doctorOnly: true } },
+    { path: "/finance",            component: FinanceDashboard,    meta: { requiresAuth: true, doctorOnly: true } },
+    { path: "/profit-loss",        component: ProfitLoss,          meta: { requiresAuth: true, doctorOnly: true } },
+    { path: "/doctor-profile",     component: DoctorProfile,       meta: { requiresAuth: true, doctorOnly: true } },
     { path: "/patient_history",    component: PatientHistory,      meta: { requiresAuth: true, doctorOnly: true } },
     { path: "/search-for-doctor",  component: SearchDoctorResults, meta: { requiresAuth: true, doctorOnly: true } },
 

@@ -1,145 +1,201 @@
-export default {
-  template: `
-    <div class="container p-3">
-      <h2 class="text-center fw-bold mb-4">Casepapers</h2>
-      <hr class="custom-hr">
+import Pagination from "./Pagination.js";
+import Skeleton   from "./Skeleton.js";
 
-      <!-- Filters -->
-      <div class="mb-3 row">
-        <div class="col-md-3">
-          <input v-model="filters.query" class="form-control" placeholder="Search name, medicine, disease" />
-        </div>
-        <div class="col-md-2">
-          <input v-model="filters.date" type="date" class="form-control" />
-        </div>
-        <div class="col-md-2">
-          <select v-model="filters.month" class="form-select">
-            <option value="">Month</option>
-            <option v-for="m in 12" :key="m" :value="m">{{ m }}</option>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <input v-model="filters.year" type="number" class="form-control" placeholder="Year" />
-        </div>
-        <div class="col-md-3">
-          <button @click="clearFilters" class="btn btn-secondary">Reset</button>
+export default {
+  components: { Pagination, Skeleton },
+
+  template: `
+  <div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h4 class="fw-bold mb-0">Casepapers</h4>
+        <p class="text-muted small mb-0">{{ filteredCasepapers.length }} record(s) found</p>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+      <div class="card-body py-3">
+        <div class="row g-2 align-items-end">
+          <div class="col-md-3">
+            <input v-model="filters.query" class="form-control form-control-sm"
+              placeholder="Search name, symptoms, diagnosis..." @input="currentPage = 1" />
+          </div>
+          <div class="col-md-2">
+            <input v-model="filters.date" type="date" class="form-control form-control-sm" @change="currentPage = 1" />
+          </div>
+          <div class="col-md-2">
+            <select v-model="filters.month" class="form-select form-select-sm" @change="currentPage = 1">
+              <option value="">All Months</option>
+              <option v-for="m in 12" :key="m" :value="m">{{ monthName(m) }}</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <input v-model.number="filters.year" type="number" class="form-control form-control-sm"
+              placeholder="Year" @input="currentPage = 1" />
+          </div>
+          <div class="col-md-3 d-flex gap-2">
+            <button @click="clearFilters" class="btn btn-outline-secondary btn-sm">Reset</button>
+          </div>
         </div>
       </div>
+    </div>
 
-      <!-- Table -->
-      <div class="table-responsive" v-if="filteredCasepapers.length > 0">
-        <table class="table table-bordered table-striped">
-          <thead class="table-dark">
+    <!-- Skeleton -->
+    <Skeleton v-if="loading" type="table" :rows="8" />
+
+    <!-- Table -->
+    <div v-else-if="paginatedCasepapers.length" class="card">
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
             <tr>
-              <th>Patient Name</th>
-              <th>Age</th>
-              <th>Sex</th>
-              <th>Address</th>
-              <th>Pincode</th>
-              <th>Weight (kg)</th>
-              <th>Phone</th>
+              <th>#</th>
+              <th>Patient</th>
+              <th>Age/Sex</th>
               <th>Date</th>
               <th>Symptoms</th>
               <th>Diagnosis</th>
               <th>Prescription</th>
-              <th>Charges (₹)</th>  <!-- ✅ Bug 2 fix — charges column added -->
+              <th>Charges</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="casepaper in filteredCasepapers" :key="casepaper.casepaper_id">
-              <td>{{ casepaper.full_name }}</td>
-              <td>{{ casepaper.age || 'N/A' }}</td>
-              <td>{{ casepaper.sex || 'N/A' }}</td>
-              <td>{{ casepaper.address || 'N/A' }}</td>
-              <td>{{ casepaper.pincode || 'N/A' }}</td>
-              <td>{{ casepaper.weight || 'N/A' }}</td>
-              <td>{{ casepaper.phone || 'N/A' }}</td>
-              <td>{{ formatDate(casepaper.created_at) }}</td>
-              <td>{{ casepaper.symptoms }}</td>
-              <td>{{ casepaper.diagnosis }}</td>
-              <td>{{ casepaper.prescription }}</td>
+            <tr v-for="(c, i) in paginatedCasepapers" :key="c.casepaper_id">
+              <td class="text-muted">{{ (currentPage-1)*perPage + i + 1 }}</td>
               <td>
-                <span class="badge bg-success fs-6">₹ {{ casepaper.charges ?? 150 }}</span>
+                <div class="fw-semibold">{{ c.full_name }}</div>
+                <small class="text-muted">{{ c.phone || '' }}</small>
+              </td>
+              <td class="text-muted small">{{ c.age ? c.age + 'y' : '' }} {{ c.sex || '' }}</td>
+              <td class="text-muted small text-nowrap">{{ formatDate(c.created_at) }}</td>
+              <td style="max-width:150px">
+                <div class="text-truncate" style="max-width:140px" :title="c.symptoms">{{ c.symptoms }}</div>
+              </td>
+              <td style="max-width:150px">
+                <div class="text-truncate" style="max-width:140px" :title="c.diagnosis">{{ c.diagnosis }}</div>
+              </td>
+              <td style="max-width:150px">
+                <div class="text-truncate" style="max-width:140px" :title="c.prescription">{{ c.prescription }}</div>
               </td>
               <td>
-                <button class="btn btn-sm btn-secondary" @click="openEditModal(casepaper)">Edit</button>
-                <button class="btn btn-sm btn-danger"    @click="openDeleteModal(casepaper.casepaper_id)">Delete</button>
+                <span class="badge bg-success">&#8377; {{ c.charges ?? 150 }}</span>
+              </td>
+              <td class="text-nowrap">
+                <button class="btn btn-sm btn-outline-secondary me-1" @click="openEditModal(c)">Edit</button>
+                <button class="btn btn-sm btn-outline-danger" @click="openDeleteModal(c.casepaper_id)">Delete</button>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-
-      <div v-else class="text-center text-muted mt-3">
-        No casepaper information matches the filters.
+      <div class="px-3 pb-3">
+        <Pagination
+          :total="filteredCasepapers.length"
+          :perPage="perPage"
+          :currentPage="currentPage"
+          @page-change="currentPage = $event"
+        />
       </div>
+    </div>
 
-      <!-- Edit Modal -->
-      <div class="modal fade" id="editCasepaperModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Edit Casepaper</h5>
-              <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
-            </div>
-            <div class="modal-body">
-              <form @submit.prevent="submitCasepaperEdit">
-                <div class="form-group mb-2">
-                  <label>Symptoms</label>
-                  <input v-model="editCasepaper.symptoms" class="form-control" required />
-                </div>
-                <div class="form-group mb-2">
-                  <label>Diagnosis</label>
-                  <input v-model="editCasepaper.diagnosis" class="form-control" required />
-                </div>
-                <div class="form-group mb-3">
-                  <label>Prescription</label>
-                  <textarea v-model="editCasepaper.prescription" class="form-control" rows="3"></textarea>
-                </div>
-                <!-- ✅ Bug 3 fix — charges editable in edit modal -->
-                <div class="form-group mb-3">
-                  <label>Charges (₹)</label>
-                  <input
-                    v-model.number="editCasepaper.charges"
-                    type="number"
-                    class="form-control"
-                    min="0"
-                    placeholder="e.g. 150"
-                    required
-                  />
-                </div>
-                <button type="submit" class="btn btn-primary">Update</button>
-              </form>
-            </div>
+    <!-- Empty -->
+    <div v-else class="card p-5 text-center">
+      <div style="font-size:48px">&#128203;</div>
+      <h5 class="mt-3 text-muted">No casepapers found</h5>
+      <p class="text-muted small">Try adjusting the filters or create a new casepaper from Home.</p>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal fade" id="editCasepaperModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Edit Casepaper</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
+          <form @submit.prevent="submitCasepaperEdit">
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label">Symptoms</label>
+                <input v-model="editCasepaper.symptoms" class="form-control" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Diagnosis</label>
+                <input v-model="editCasepaper.diagnosis" class="form-control" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Prescription</label>
+                <textarea v-model="editCasepaper.prescription" class="form-control" rows="3"></textarea>
+              </div>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label">Charges (&#8377;)</label>
+                  <input v-model.number="editCasepaper.charges" type="number" class="form-control" min="0" required />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Visit Type</label>
+                  <select v-model="editCasepaper.visit_type" class="form-select">
+                    <option value="consultation">Consultation</option>
+                    <option value="follow_up">Follow-Up</option>
+                    <option value="procedure">Procedure</option>
+                    <option value="emergency">Emergency</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Payment Status</label>
+                  <select v-model="editCasepaper.payment_status" class="form-select">
+                    <option value="paid">Paid</option>
+                    <option value="unpaid">Unpaid</option>
+                    <option value="partial">Partial</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-primary btn-sm" :disabled="saving">
+                {{ saving ? 'Saving...' : 'Update' }}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
+    </div>
 
-      <!-- Delete Modal -->
-      <div class="modal fade" id="deleteCasepaperModal" tabindex="-1">
-        <div class="modal-dialog modal-sm">
-          <div class="modal-content">
-            <div class="modal-body text-center">
-              <p>Are you sure you want to delete this casepaper?</p>
-              <button class="btn btn-danger"    @click="deleteCasepaper">Yes, Delete</button>
-              <button class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-            </div>
+    <!-- Delete Modal -->
+    <div class="modal fade" id="deleteCasepaperModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+          <div class="modal-header border-0">
+            <h6 class="modal-title text-danger fw-bold">Delete Casepaper?</h6>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body text-center">
+            <p class="text-muted mb-0">This action cannot be undone.</p>
+          </div>
+          <div class="modal-footer border-0">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-danger btn-sm" @click="deleteCasepaper">Yes, Delete</button>
           </div>
         </div>
       </div>
     </div>
+  </div>
   `,
 
   data() {
     return {
-      token: localStorage.getItem('auth-token'),
-      casepapers: [],
-      editCasepaper: {
-        id: null, symptoms: '', diagnosis: '', prescription: '', charges: 150
-      },
+      token:               localStorage.getItem("auth-token"),
+      casepapers:          [],
+      loading:             true,
+      saving:              false,
+      currentPage:         1,
+      perPage:             20,
+      editCasepaper:       { id: null, symptoms: "", diagnosis: "", prescription: "", charges: 150, visit_type: "consultation", payment_status: "paid" },
       casepaperToDeleteId: null,
-      filters: { query: '', date: '', month: '', year: '' }
+      filters:             { query: "", date: "", month: "", year: "" }
     };
   },
 
@@ -148,103 +204,119 @@ export default {
       const q = this.filters.query.trim().toLowerCase();
       return this.casepapers.filter(c => {
         const created      = new Date(c.created_at);
-        const matchesQuery = !q || [c.full_name, c.symptoms, c.diagnosis, c.prescription]
+        const matchQuery   = !q || [c.full_name, c.symptoms, c.diagnosis, c.prescription]
           .some(f => f?.toLowerCase().includes(q));
-        const matchesDate  = !this.filters.date  || c.created_at?.startsWith(this.filters.date);
-        const matchesMonth = !this.filters.month || created.getMonth() + 1 === parseInt(this.filters.month);
-        const matchesYear  = !this.filters.year  || created.getFullYear() === parseInt(this.filters.year);
-        return matchesQuery && matchesDate && matchesMonth && matchesYear;
+        const matchDate    = !this.filters.date  || c.created_at?.startsWith(this.filters.date);
+        const matchMonth   = !this.filters.month || (created.getMonth() + 1) === parseInt(this.filters.month);
+        const matchYear    = !this.filters.year  || created.getFullYear() === parseInt(this.filters.year);
+        return matchQuery && matchDate && matchMonth && matchYear;
       });
+    },
+    paginatedCasepapers() {
+      const start = (this.currentPage - 1) * this.perPage;
+      return this.filteredCasepapers.slice(start, start + this.perPage);
     }
   },
 
   methods: {
-    async fetchcasepapers() {
+    async fetchCasepapers() {
+      this.loading = true;
       try {
-        const res = await fetch('/api/casepapers', {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authentication-Token': this.token
-          }
+        const res  = await fetch("/api/casepapers", {
+          headers: { "Authentication-Token": this.token }
         });
         const data = await res.json();
-        if (res.ok) {
-          this.casepapers = Array.isArray(data) ? data : [];
-        }
+        this.casepapers = res.ok && Array.isArray(data) ? data : [];
       } catch (err) {
         console.error("Error fetching casepapers:", err);
+      } finally {
+        this.loading = false;
       }
     },
 
-    openEditModal(casepaper) {
+    openEditModal(c) {
       this.editCasepaper = {
-        id:           casepaper.casepaper_id,
-        symptoms:     casepaper.symptoms,
-        diagnosis:    casepaper.diagnosis,
-        prescription: casepaper.prescription,
-        charges:      casepaper.charges ?? 150   // ✅ prefill charges
+        id:             c.casepaper_id,
+        symptoms:       c.symptoms       || "",
+        diagnosis:      c.diagnosis      || "",
+        prescription:   c.prescription   || "",
+        charges:        c.charges        ?? 150,
+        visit_type:     c.visit_type     || "consultation",
+        payment_status: c.payment_status || "paid"
       };
-      $('#editCasepaperModal').modal('show');
+      bootstrap.Modal.getOrCreateInstance(
+        document.getElementById("editCasepaperModal")
+      ).show();
     },
 
     async submitCasepaperEdit() {
+      this.saving = true;
       try {
         const res = await fetch(`/api/casepaper/${this.editCasepaper.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authentication-Token': this.token
-          },
-          body: JSON.stringify(this.editCasepaper)
+          method:  "PUT",
+          headers: { "Content-Type": "application/json", "Authentication-Token": this.token },
+          body:    JSON.stringify(this.editCasepaper)
         });
         if (res.ok) {
-          alert("Casepaper updated successfully.");
-          $('#editCasepaperModal').modal('hide');
-          await this.fetchcasepapers();
+          bootstrap.Modal.getOrCreateInstance(
+            document.getElementById("editCasepaperModal")
+          ).hide();
+          setTimeout(() => this.fetchCasepapers(), 300);
         } else {
           alert("Failed to update casepaper.");
         }
-      } catch (error) {
-        console.error("Edit error:", error);
+      } catch (err) {
+        console.error("Edit error:", err);
+        alert("Network error. Please try again.");
+      } finally {
+        this.saving = false;
       }
     },
 
     openDeleteModal(id) {
       this.casepaperToDeleteId = id;
-      $('#deleteCasepaperModal').modal('show');
+      bootstrap.Modal.getOrCreateInstance(
+        document.getElementById("deleteCasepaperModal")
+      ).show();
     },
 
     async deleteCasepaper() {
       try {
         const res = await fetch(`/delete/casepaper/${this.casepaperToDeleteId}`, {
-          method: "DELETE",
-          headers: { 'Authentication-Token': this.token }
+          method:  "DELETE",
+          headers: { "Authentication-Token": this.token }
         });
         if (res.ok) {
-          alert("Casepaper deleted successfully.");
-          $('#deleteCasepaperModal').modal('hide');
-          await this.fetchcasepapers();
+          bootstrap.Modal.getOrCreateInstance(
+            document.getElementById("deleteCasepaperModal")
+          ).hide();
+          setTimeout(() => this.fetchCasepapers(), 300);
         } else {
           alert("Failed to delete casepaper.");
         }
-      } catch (error) {
-        console.error("Delete error:", error);
+      } catch (err) {
+        console.error("Delete error:", err);
       }
     },
 
     clearFilters() {
-      this.filters = { query: '', date: '', month: '', year: '' };
+      this.filters = { query: "", date: "", month: "", year: "" };
+      this.currentPage = 1;
     },
 
-    formatDate(dateTime) {
-      if (!dateTime) return 'N/A';
-      return new Date(dateTime).toLocaleDateString('en-IN', {
-        day: '2-digit', month: 'short', year: 'numeric'
+    monthName(m) {
+      return ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m-1];
+    },
+
+    formatDate(dt) {
+      if (!dt) return "N/A";
+      return new Date(dt).toLocaleDateString("en-IN", {
+        day: "2-digit", month: "short", year: "numeric"
       });
     }
   },
 
   async mounted() {
-    await this.fetchcasepapers();
+    await this.fetchCasepapers();
   }
 };

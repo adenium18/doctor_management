@@ -2,8 +2,9 @@ export default {
     template: `
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container-fluid">
-            <a class="navbar-brand text-primary fw-bold" href="/">Dr. A-to-Z 🏥</a>
-            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+            <a class="navbar-brand text-primary fw-bold" href="/">Dr. A-to-Z &#127973;</a>
+            <button class="navbar-toggler" type="button"
+                data-bs-toggle="collapse" data-bs-target="#navbarNav"
                 aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -26,7 +27,7 @@ export default {
                         <router-link class="nav-link" to="/">Home</router-link>
                     </li>
                     <li class="nav-item" v-if="role === 'doctor'">
-                        <router-link class="nav-link" to="/dashboard">📈 Dashboard</router-link>
+                        <router-link class="nav-link" to="/dashboard">&#128200; Dashboard</router-link>
                     </li>
                     <li class="nav-item" v-if="role === 'doctor'">
                         <router-link class="nav-link" to="/patients">Patients</router-link>
@@ -35,20 +36,21 @@ export default {
                         <router-link class="nav-link" to="/casepapers">Casepapers</router-link>
                     </li>
                     <li class="nav-item" v-if="role === 'doctor'">
-                        <router-link class="nav-link" to="/billing">💰 Billing</router-link>
+                        <router-link class="nav-link" to="/billing">&#128176; Billing</router-link>
                     </li>
                     <li class="nav-item" v-if="role === 'doctor'">
-                        <router-link class="nav-link" to="/expenses">🧾 Expenses</router-link>
+                        <router-link class="nav-link" to="/expenses">&#129534; Expenses</router-link>
                     </li>
                     <li class="nav-item" v-if="role === 'doctor'">
-                        <router-link class="nav-link" to="/reports">📊 Reports</router-link>
+                        <router-link class="nav-link" to="/reports">&#128202; Reports</router-link>
                     </li>
 
                     <!-- Doctor Search -->
                     <li class="nav-item" v-if="role === 'doctor'">
                         <form @submit.prevent="handleDoctorSearch" class="d-flex align-items-center ms-2">
-                            <input v-model="searchQuery" class="form-control me-2" placeholder="Search..." style="width:160px"/>
-                            <select v-model="searchType" class="form-select me-2" style="width:130px">
+                            <input v-model="searchQuery" class="form-control me-2"
+                                placeholder="Search..." style="width:160px"/>
+                            <select v-model="searchType" class="form-select me-2" style="width:140px">
                                 <option value="name">Name</option>
                                 <option value="pincode">Pincode</option>
                                 <option value="symptoms">Symptoms</option>
@@ -65,8 +67,11 @@ export default {
                     <li class="nav-item" v-if="!isAuthenticated">
                         <router-link class="nav-link" to="/user-login">Login</router-link>
                     </li>
+                    <li class="nav-item" v-if="isAuthenticated && role === 'doctor'">
+                        <router-link class="nav-link" to="/doctor-profile">&#128100; Profile</router-link>
+                    </li>
                     <li class="nav-item" v-if="isAuthenticated">
-                        <button class="btn btn-outline-danger btn-sm" @click="logout">Logout</button>
+                        <button class="btn btn-outline-danger btn-sm ms-2" @click="logout">Logout</button>
                     </li>
                 </ul>
             </div>
@@ -95,7 +100,7 @@ export default {
                 return;
             }
             this.$router.push({
-                path: '/search-for-doctor',
+                path:  '/search-for-doctor',
                 query: { type: this.searchType, query: this.searchQuery.trim() }
             });
         }

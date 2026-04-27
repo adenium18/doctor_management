@@ -1,38 +1,66 @@
 export default {
     template: `
-    <div class="d-flex justify-content-center align-items-center vh-100" style="margin-top: 25vh">
-        <div class="card shadow-lg p-3 bg-white rounded" style="width: 28rem;">
-            <div class="card-body">
-                <h2 class="text-center mb-4">Login</h2>
-                <div class="text-danger text-center" v-if="error">{{ error }}</div>
-                <form @submit.prevent="login">
-                    <div class="mb-3">
-                        <label for="user-email" class="form-label">Email:</label>
-                        <input type="email" class="form-control" id="user-email" v-model="cred.email" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="user-password" class="form-label">Password:</label>
-                        <input type="password" class="form-control" id="user-password" v-model="cred.password" required>
-                    </div>
-                    <div class="d-grid gap-2">
-                        <button class="btn btn-primary" type="submit">Login</button>
-                    </div>
-                </form>
-            </div>
+    <div class="login-wrapper">
+        <div class="login-card">
+            <div class="login-logo">🏥</div>
+            <h2 class="text-center">Dr. A-to-Z</h2>
+            <p class="text-center text-muted mb-4" style="font-size:13px">
+                Clinic Management System
+            </p>
+
+            <div class="alert alert-danger py-2 mb-3" v-if="error">{{ error }}</div>
+
+            <form @submit.prevent="login">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Email</label>
+                    <input
+                        type="email"
+                        class="form-control"
+                        v-model="cred.email"
+                        placeholder="doctor@clinic.com"
+                        required
+                        autofocus
+                    >
+                </div>
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">Password</label>
+                    <input
+                        type="password"
+                        class="form-control"
+                        v-model="cred.password"
+                        placeholder="••••••••"
+                        required
+                    >
+                </div>
+                <button
+                    class="btn btn-primary w-100"
+                    type="submit"
+                    :disabled="loading"
+                    style="padding: 10px; font-size: 15px"
+                >
+                    {{ loading ? 'Signing in...' : 'Sign In' }}
+                </button>
+            </form>
+
+            <p class="text-center text-muted mt-4 mb-0" style="font-size:12px">
+                Contact your admin if you need access.
+            </p>
         </div>
     </div>
     `,
 
     data() {
         return {
-            cred:  { email: "", password: "" },
-            error: null
+            cred:    { email: "", password: "" },
+            error:   null,
+            loading: false
         };
     },
 
     methods: {
         async login() {
-            this.error = null;
+            this.error   = null;
+            this.loading = true;
             try {
                 const res  = await fetch("/user-login", {
                     method:  "POST",
@@ -42,30 +70,27 @@ export default {
                 const data = await res.json();
 
                 if (res.ok) {
-                    // ✅ Store all keys including doctor_id before committing to store
                     localStorage.setItem("auth-token",  data.token);
                     localStorage.setItem("role",        data.role);
                     localStorage.setItem("full_name",   data.full_name);
                     localStorage.setItem("user_id",     data.user_id);
-                    localStorage.setItem("doctor_id",   data.doctor_id);  // ✅ store doctor_id separately
-
-                    // Store full user object for store.js setUser()
+                    localStorage.setItem("doctor_id",   data.doctor_id);
                     localStorage.setItem("user", JSON.stringify({
                         token:     data.token,
                         role:      data.role,
                         user_id:   data.user_id,
-                        doctor_id: data.doctor_id,                        // ✅ include in user object too
+                        doctor_id: data.doctor_id,
                         full_name: data.full_name
                     }));
-
-                    this.$store.commit('setUser');
+                    this.$store.commit("setUser");
                     this.$router.push("/");
-
                 } else {
                     this.error = data.message || "Invalid credentials";
                 }
-            } catch (err) {
-                this.error = "Server error. Please try again later.";
+            } catch {
+                this.error = "Server error. Please try again.";
+            } finally {
+                this.loading = false;
             }
         }
     }

@@ -12,10 +12,8 @@ class LocalDevelopmentConfig(Config):
     SECURITY_TOKEN_AUTHENTICATION_HEADER = 'Authentication-Token'
     SECURITY_TOKEN_MAX_AGE = 3600
 
-    # Cache config
-    CACHE_TYPE = "RedisCache"
-    CACHE_REDIS_HOST = "localhost"           # ✅ was missing
-    CACHE_REDIS_PORT = 6379
+    # Cache — SimpleCache works without Redis in development
+    CACHE_TYPE = "SimpleCache"
     CACHE_DEFAULT_TIMEOUT = 30
 
     WTF_CSRF_ENABLED = False

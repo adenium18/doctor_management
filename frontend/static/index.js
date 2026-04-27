@@ -1,27 +1,10 @@
-import router from "./router.js"
-import Navbar from "./components/Navbar.js"
-import store from "./store.js"
+import router from "./router.js";
+import store  from "./store.js";
+import App    from "./App.js";
 
 new Vue({
-    el: '#app',
-    template: `
-    <div>
-        <Navbar :key='has_changed'/>
-        <router-view class="m-3"/>
-    </div>
-    `,
-    
-    components: {
-        Navbar
-    },
+    el:     '#app',
     router,
     store,
-    data: {
-        has_changed: true
-    },
-    watch: {
-        $route(to, from) {
-            this.has_changed = !this.has_changed
-        }
-    }
-})
+    render: h => h(App)
+});

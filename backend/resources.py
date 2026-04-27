@@ -34,7 +34,11 @@ parser1.add_argument(
     "sex",
     type=str,
     help="gender is required and should be a string",
-    required=True,
+)
+parser1.add_argument(
+    "age",
+    type=int,
+    help="Age in years",
 )
 
 parser1.add_argument(
@@ -99,12 +103,14 @@ class PatientAPI(Resource):
 
     def post(self):
         args = parser1.parse_args()
-        try:
-            dob = datetime.strptime(args.dob, "%Y-%m-%d").date()
-            today = date.today()
-            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-        except Exception as e:
-            return {"message": f"Invalid date format for dob. Use YYYY-MM-DD. Error: {str(e)}"}, 400
+        age = args.age
+        if args.dob and not age:
+            try:
+                dob = datetime.strptime(args.dob, "%Y-%m-%d").date()
+                today = date.today()
+                age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            except Exception:
+                pass
 
         new_patient = Patient(
             full_name=args.full_name.strip(),
@@ -119,7 +125,7 @@ class PatientAPI(Resource):
         db.session.add(new_patient)
         db.session.commit()
         db.session.refresh(new_patient)
-        return {"message": "Patient profile created successfully", "patient_id": new_patient.id}, 201
+        return {"message": "Patient profile created successfully", "id": new_patient.id, "patient_id": new_patient.id}, 201
 
 class  UpdatePatient(Resource):
     def get(self,id):
@@ -296,39 +302,51 @@ class CasepaperAPI(Resource):
         }
     
     @auth_required("token")
+    @roles_required("doctor")
     def post(self):
-        print("JSON received:", request.get_json())
         try:
-            print("Headers:", request.headers)
-            print("Raw Data:", request.data)
-            print("Is JSON:", request.is_json)
+            data = request.get_json(force=True, silent=True) or {}
+            patient_id = data.get("patient_id")
+            if not patient_id:
+                return {"message": "patient_id is required"}, 400
+            if not all(data.get(f) for f in ["symptoms", "diagnosis", "prescription"]):
+                return {"message": "symptoms, diagnosis, and prescription are required"}, 400
 
-            args = casepaper_parser.parse_args()
-            print("Parsed Args:", args)
+            doctor_id = current_user.doctor.id if hasattr(current_user, "doctor") and current_user.doctor else None
+            if not doctor_id:
+                return {"message": "Doctor profile not found"}, 403
 
-            #current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            patient = Patient.query.get(patient_id)
+            if not patient:
+                return {"message": "Patient not found"}, 404
 
-            new_casepaper = Casepaper(
-                patient_id=args.patient_id,
-                doctor_id=args.doctor_id,
-                symptoms=args.symptoms,
-                diagnosis=args.diagnosis,
-                prescription=args.prescription,
-                charges      = args.charges or 150,
-            
+            cp = Casepaper(
+                patient_id   = patient_id,
+                doctor_id    = doctor_id,
+                symptoms     = data.get("symptoms",     ""),
+                diagnosis    = data.get("diagnosis",    ""),
+                prescription = data.get("prescription", ""),
+                charges      = data.get("charges",      150),
             )
-            db.session.add(new_casepaper)
+            cp.visit_type     = data.get("visit_type",     "consultation")
+            cp.payment_status = data.get("payment_status", "paid")
+            cp.notes          = data.get("notes",          "")
+            cp.next_followup  = data.get("next_followup",  None)
+            db.session.add(cp)
             db.session.commit()
-
-            return {"message": "Casepaper created successfully"}, 201
+            db.session.refresh(cp)
+            return {"message": "Casepaper created successfully", "casepaper_id": cp.id}, 201
         except Exception as e:
-            print("Error occurred:", e)
+            db.session.rollback()
             return {"message": "Error creating casepaper", "error": str(e)}, 400
         
 
 
 
+# NOTE: PatientAPI GET is shadowed by manage_patients in routes.py for doctor-filtered results.
+# PatientAPI POST is kept here (routes.py POST is registered after and Flask picks first match).
+# CasepaperAPI and DoctorsAPI POSTs are superseded by routes.py — registrations kept for GET only.
 api.add_resource(PatientAPI,"/patients")
 api.add_resource(DoctorsAPI,"/doctors")
 api.add_resource(CasepaperAPI,"/casepaper")
-api.add_resource(UpdatePatient, "/patients/<int:id>")   # ✅ this line was missing!
+api.add_resource(UpdatePatient, "/patients/<int:id>")
