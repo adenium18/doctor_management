@@ -112,7 +112,9 @@ export default {
       <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Edit Casepaper</h5>
+            <h5 class="modal-title">Edit Casepaper
+              <small v-if="editCasepaper.patient_name" class="text-muted fw-normal ms-2">— {{ editCasepaper.patient_name }}</small>
+            </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <form @submit.prevent="submitCasepaperEdit">
@@ -193,7 +195,7 @@ export default {
       saving:              false,
       currentPage:         1,
       perPage:             20,
-      editCasepaper:       { id: null, symptoms: "", diagnosis: "", prescription: "", charges: 150, visit_type: "consultation", payment_status: "paid" },
+      editCasepaper:       { id: null, patient_name: "", symptoms: "", diagnosis: "", prescription: "", charges: 150, visit_type: "consultation", payment_status: "paid" },
       casepaperToDeleteId: null,
       filters:             { query: "", date: "", month: "", year: "" }
     };
@@ -237,6 +239,7 @@ export default {
     openEditModal(c) {
       this.editCasepaper = {
         id:             c.casepaper_id,
+        patient_name:   c.full_name      || "",
         symptoms:       c.symptoms       || "",
         diagnosis:      c.diagnosis      || "",
         prescription:   c.prescription   || "",
@@ -261,13 +264,14 @@ export default {
           bootstrap.Modal.getOrCreateInstance(
             document.getElementById("editCasepaperModal")
           ).hide();
+          this.$toast("Casepaper updated successfully!");
           setTimeout(() => this.fetchCasepapers(), 300);
         } else {
-          alert("Failed to update casepaper.");
+          this.$toast("Failed to update casepaper.", "danger");
         }
       } catch (err) {
         console.error("Edit error:", err);
-        alert("Network error. Please try again.");
+        this.$toast("Network error. Please try again.", "danger");
       } finally {
         this.saving = false;
       }
@@ -290,12 +294,14 @@ export default {
           bootstrap.Modal.getOrCreateInstance(
             document.getElementById("deleteCasepaperModal")
           ).hide();
+          this.$toast("Casepaper deleted.", "info");
           setTimeout(() => this.fetchCasepapers(), 300);
         } else {
-          alert("Failed to delete casepaper.");
+          this.$toast("Failed to delete casepaper.", "danger");
         }
       } catch (err) {
         console.error("Delete error:", err);
+        this.$toast("Network error. Please try again.", "danger");
       }
     },
 

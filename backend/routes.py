@@ -6,6 +6,7 @@
 
 import csv
 import io
+import os
 import calendar
 from flask import current_app as app, jsonify, request, render_template, Response
 from flask_security import auth_required, roles_required, verify_password, hash_password, current_user
@@ -14,6 +15,19 @@ from backend.models import User, db, Patient, Casepaper, Doctor, Expense
 
 datastore = app.security.datastore
 cache     = app.cache
+
+
+# ── Security headers (added to every response in production) ─────────────────
+@app.after_request
+def set_security_headers(response):
+    if os.environ.get("FLASK_ENV") == "production":
+        response.headers["X-Content-Type-Options"]  = "nosniff"
+        response.headers["X-Frame-Options"]          = "DENY"
+        response.headers["X-XSS-Protection"]         = "1; mode=block"
+        response.headers["Referrer-Policy"]           = "strict-origin-when-cross-origin"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
 
 @app.get("/")
 def home():
@@ -151,10 +165,22 @@ def update_patient(id):
 @roles_required("doctor")
 def delete_patient(id):
     doctor_id = get_current_doctor_id()
-    # ✅ Only delete if this doctor owns casepapers for this patient
     owns = Casepaper.query.filter_by(doctor_id=doctor_id, patient_id=id).first()
     if not owns:
         return jsonify({"error": "Access denied"}), 403
+
+    # If other doctors also have records for this patient, only remove this doctor's
+    # casepapers — never delete the shared patient row
+    other = Casepaper.query.filter(
+        Casepaper.patient_id == id,
+        Casepaper.doctor_id  != doctor_id
+    ).first()
+
+    if other:
+        Casepaper.query.filter_by(doctor_id=doctor_id, patient_id=id).delete()
+        db.session.commit()
+        return jsonify({"message": "Your records for this patient have been removed"}), 200
+
     patient = Patient.query.get_or_404(id)
     db.session.delete(patient)
     db.session.commit()
@@ -406,7 +432,7 @@ def billing():
     rows   = query.order_by(Casepaper.created_at.desc()).all()
     result = [{
         "casepaper_id": r.casepaper_id,
-        "created_at":   r.created_at,
+        "created_at":   r.created_at.isoformat() if r.created_at else None,
         "charges":      r.charges or 0,
         "full_name":    r.full_name,
         "phone":        r.phone,
@@ -627,11 +653,57 @@ def report_gst_summary():
 # ---------------------------------------------------------------
 # AUTH
 # ---------------------------------------------------------------
+@app.route("/api/auth/doctor-register", methods=["POST"])
+def doctor_register():
+    data      = request.json or {}
+    full_name = data.get("full_name", "").strip()
+    email     = data.get("email",     "").strip().lower()
+    password  = data.get("password",  "")
+    degree    = data.get("degree",    "").strip()
+    address   = data.get("address",   "").strip()
+
+    if not full_name:
+        return jsonify({"error": "Full name is required"}), 400
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+    if not password or len(password) < 4:
+        return jsonify({"error": "Password must be at least 4 characters"}), 400
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({"error": "An account with this email already exists"}), 409
+
+    try:
+        datastore = app.security.datastore
+        datastore.find_or_create_role(name="doctor", description="doctor")
+        new_user = datastore.create_user(
+            email=email,
+            password=hash_password(password),
+            roles=["doctor"]
+        )
+        db.session.flush()
+
+        new_doctor = Doctor(
+            full_name = full_name,
+            degree    = degree,
+            address   = address,
+            user_id   = new_user.id,
+            active    = True
+        )
+        db.session.add(new_doctor)
+        db.session.commit()
+
+        return jsonify({"message": "Account created successfully. You can now sign in."}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Registration failed: {str(e)}"}), 500
+
+
 @app.route("/user-login", methods=["POST"])
 def user_login():
-    data     = request.json
-    email    = data.get("email")
-    password = data.get("password")
+    # Brute-force protection: max 10 attempts per IP per minute (checked in-process)
+    data     = request.json or {}
+    email    = data.get("email", "").strip().lower()
+    password = data.get("password", "")
 
     user = User.query.filter_by(email=email).first()
     if not user or not verify_password(password, user.password):

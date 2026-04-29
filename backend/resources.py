@@ -84,21 +84,25 @@ class PatientAPI(Resource):
     @roles_required("doctor")
     @auth_required("token")
     def get(self):
-        patients = Patient.query.all()
-        if not patients:
-            return {"message": "No patient records found"}, 200
+        from flask_security import current_user
+        doctor_id = None
+        if hasattr(current_user, "doctor") and current_user.doctor:
+            doctor_id = current_user.doctor.id
+
+        patient_ids = db.session.query(Casepaper.patient_id)\
+            .filter_by(doctor_id=doctor_id).distinct()
+        patients = Patient.query.filter(Patient.id.in_(patient_ids)).all()
+
         return jsonify([{
-            "id" : patient.id,
+            "id":        patient.id,
             "full_name": patient.full_name,
-            "address" : patient.address,
-            "pincode" : patient.pincode,
-            "dob" : patient.dob,
-            "age" : patient.age,
-            "weight" : patient.weight,
-            "sex" : patient.sex,
-            "phone" : patient.phone,
-            
-        
+            "address":   patient.address,
+            "pincode":   patient.pincode,
+            "dob":       patient.dob,
+            "age":       patient.age,
+            "weight":    patient.weight,
+            "sex":       patient.sex,
+            "phone":     patient.phone,
         } for patient in patients])
 
     def post(self):
@@ -196,14 +200,15 @@ doctor_fields = {
 
 class DoctorsAPI(Resource):
     @auth_required("token")
-    
+    @roles_required("admin")
     def get(self):
         doctors = Doctor.query.all()
         if not doctors:
-            return {"doctors": []}, 200  # ✅ Return empty list instead of 404
+            return {"doctors": []}, 200
         return marshal(doctors, doctor_fields), 200
 
-  
+    @auth_required("token")
+    @roles_required("admin")
     def post(self):
         args = parser2.parse_args()
 
@@ -269,37 +274,34 @@ casepaper_fields={
 class CasepaperAPI(Resource):
     @roles_required("doctor")
     @auth_required("token")
-
     def get(self):
-        user=current_user
-        casepaper=Casepaper.query.all()
-        patient=Patient.query.all()
-        doctor=Doctor.query.all()
+        doctor_id = current_user.doctor.id if (
+            hasattr(current_user, "doctor") and current_user.doctor
+        ) else None
 
+        casepapers = Casepaper.query.filter_by(doctor_id=doctor_id).all() if doctor_id else []
 
-        response=[]
-        for req in casepaper:
-            patient=Patient.query.filter_by(id=req.patient_id).first()
-            doctor=Doctor.query.filter_by(id=req.doctor_id).first()
-
+        response = []
+        for req in casepapers:
+            patient = Patient.query.filter_by(id=req.patient_id).first()
+            if not patient:
+                continue
             response.append({
-                "id": req.id,
-                "patient_id": req.patient_id,
-                "doctor_id": req.doctor_id,
+                "id":           req.id,
+                "patient_id":   req.patient_id,
+                "doctor_id":    req.doctor_id,
                 "patient_name": patient.full_name,
-                "age": patient.age,
-                "sex": patient.sex,
-                "weight": patient.weight,
-                "address": patient.address,
-                "phone":patient.phone,
-                "symptoms": req.symptoms,
-                "diagnosis": req.diagnosis,
+                "age":          patient.age,
+                "sex":          patient.sex,
+                "weight":       patient.weight,
+                "address":      patient.address,
+                "phone":        patient.phone,
+                "symptoms":     req.symptoms,
+                "diagnosis":    req.diagnosis,
                 "prescription": req.prescription,
-                "created_at": req.created_at,
+                "created_at":   req.created_at.isoformat() if req.created_at else None,
             })
-        return{
-            "casepaper":marshal(response,casepaper_fields) if casepaper else []
-        }
+        return {"casepaper": marshal(response, casepaper_fields) if response else []}
     
     @auth_required("token")
     @roles_required("doctor")

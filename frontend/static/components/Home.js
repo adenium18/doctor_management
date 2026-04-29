@@ -257,7 +257,7 @@ export default {
       this.forceCreateNew   = false;
 
       if (!this.form.full_name.trim()) {
-        alert("Please enter a patient name to search.");
+        this.$toast("Please enter a patient name to search.", "warning");
         return;
       }
       this.searching = true;
@@ -277,7 +277,7 @@ export default {
         }
       } catch (err) {
         console.error("Search error:", err);
-        alert("Search failed. Please try again.");
+        this.$toast("Search failed. Please try again.", "danger");
       } finally {
         this.searching = false;
       }
@@ -347,7 +347,7 @@ export default {
             if (result.error?.toLowerCase().includes("phone")) {
               this.phoneError = true;
             } else {
-              alert(result.error || "Failed to create patient.");
+              this.$toast(result.error || "Failed to create patient.", "danger");
             }
             return;
           }
@@ -373,11 +373,11 @@ export default {
         const caseData = await caseRes.json();
         if (!caseRes.ok) throw new Error(caseData.error || "Failed to save casepaper.");
 
-        alert("Casepaper saved successfully!");
+        this.$toast("Casepaper saved successfully!");
         this.resetForm();
       } catch (err) {
         console.error("Submit error:", err);
-        alert(`Error: ${err.message}`);
+        this.$toast(err.message || "An error occurred.", "danger");
       } finally {
         this.submitting = false;
       }

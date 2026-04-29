@@ -184,7 +184,7 @@ export default {
           headers: { "Authentication-Token": this.token }
         });
         const data = await res.json();
-        this.patients = res.ok ? data : [];
+        this.patients = (res.ok && Array.isArray(data)) ? data : [];
       } catch (err) {
         console.error("Failed to load patients:", err);
       } finally {
@@ -205,11 +205,11 @@ export default {
             document.getElementById("editPatientModal")
           ).show();
         } else {
-          alert(data.error || "Failed to load patient");
+          this.$toast(data.error || "Failed to load patient.", "danger");
         }
       } catch (err) {
         console.error("Network error:", err);
-        alert("Network error. Please try again.");
+        this.$toast("Network error. Please try again.", "danger");
       }
     },
 
@@ -226,13 +226,14 @@ export default {
           bootstrap.Modal.getOrCreateInstance(
             document.getElementById("editPatientModal")
           ).hide();
+          this.$toast("Patient updated successfully!");
           setTimeout(() => this.fetchPatients(), 350);
         } else {
-          alert(data.error || "Update failed");
+          this.$toast(data.error || "Update failed.", "danger");
         }
       } catch (err) {
         console.error("Network error:", err);
-        alert("Network error. Please try again.");
+        this.$toast("Network error. Please try again.", "danger");
       } finally {
         this.saving = false;
       }

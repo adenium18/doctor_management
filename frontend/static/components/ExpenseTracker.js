@@ -177,6 +177,7 @@ export default {
           body:    JSON.stringify(this.form)
         });
         if (res.ok) {
+          this.$toast("Expense added successfully!");
           this.form = { title: "", category: "Other", amount: null, date: this.today, description: "" };
           await this.fetchExpenses();
         } else {
@@ -188,15 +189,21 @@ export default {
     },
 
     async deleteExpense(id) {
-      if (!confirm("Delete this expense?")) return;
+      if (!window.confirm("Delete this expense?")) return;
       try {
         const res = await fetch(`/api/expenses/${id}`, {
           method:  "DELETE",
           headers: { "Authentication-Token": this.token }
         });
-        if (res.ok) await this.fetchExpenses();
+        if (res.ok) {
+          this.$toast("Expense deleted.", "info");
+          await this.fetchExpenses();
+        } else {
+          this.$toast("Failed to delete expense.", "danger");
+        }
       } catch (err) {
         console.error("Delete expense error:", err);
+        this.$toast("Network error. Please try again.", "danger");
       }
     },
 

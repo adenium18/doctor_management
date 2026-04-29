@@ -1,0 +1,52 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Lint & basic checks ────────────────────────────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check syntax (py_compile)
+        run: |
+          python -m py_compile app.py
+          python -m py_compile backend/models.py
+          python -m py_compile backend/routes.py
+          python -m py_compile backend/resources.py
+          python -m py_compile backend/config.py
+
+      - name: Verify imports
+        run: python -c "import app; print('Import OK')"
+        env:
+          FLASK_ENV:              development
+          SECRET_KEY:             ci-test-key
+          SECURITY_PASSWORD_SALT: ci-test-salt
+
+  # ── Deploy on push to main (after tests pass) ──────────────────────────────
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Trigger Render deploy hook
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+        # Set RENDER_DEPLOY_HOOK_URL in GitHub → Settings → Secrets
+        # Get the URL from Render dashboard → your service → Settings → Deploy Hook

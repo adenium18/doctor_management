@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python app.py)",
+      "Bash(curl -s -X POST http://localhost:5000/user-login -H 'Content-Type: application/json' -d '{\"email\":\"test@test.com\",\"password\":\"test\"}')",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s -X POST http://localhost:5000/user-login -H 'Content-Type: application/json' -d '{\"email\":\"doctor@abc.in\",\"password\":\"password\"}')",
+      "Bash(python3 -c \"import sys,json; print\\(json.load\\(sys.stdin\\)\\)\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(pkill -f \"flask\")",
+      "Bash(python -c \"import app; print\\('Import OK'\\)\")"
+    ]
+  }
+}

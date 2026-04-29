@@ -17,8 +17,8 @@ import ProfitLoss          from "./components/ProfitLoss.js";
 import DoctorProfile       from "./components/DoctorProfile.js";
 
 const routes = [
-    // Public
-    { path: "/app_info",   component: appinfo },
+    // Doctor casepapers view (requires auth)
+    { path: "/app_info", component: appinfo, meta: { requiresAuth: true, doctorOnly: true } },
     {
         path: "/user-login",
         component: Login,

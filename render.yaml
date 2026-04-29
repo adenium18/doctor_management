@@ -1,0 +1,32 @@
+services:
+  # ── Web service (Flask) ──────────────────────────────────────────────────
+  - type: web
+    name: dr-atoz-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app -c gunicorn.conf.py
+    healthCheckPath: /
+    autoDeploy: true           # deploy on every push to main
+
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true    # Render auto-generates a secure random value
+      - key: SECURITY_PASSWORD_SALT
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dr-atoz-db
+          property: connectionString
+      - key: ALLOWED_ORIGINS
+        value: https://app.yourdomain.com   # ← change to your domain
+      - key: WEB_CONCURRENCY
+        value: "2"
+
+  # ── PostgreSQL database ──────────────────────────────────────────────────
+databases:
+  - name: dr-atoz-db
+    databaseName: dratoz
+    user: dratoz_user
+    plan: free                 # free tier: 256 MB RAM, 1 GB storage

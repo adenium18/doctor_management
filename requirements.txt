@@ -1,0 +1,48 @@
+# Web framework
+Flask==3.0.3
+Werkzeug==3.0.4
+
+# Database
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.36
+psycopg2-binary==2.9.10
+
+# Auth
+Flask-Security-Too==5.5.2
+Flask-Login==0.6.3
+Flask-Principal==0.4.0
+passlib==1.7.4
+bcrypt==4.2.1
+
+# API
+Flask-RESTful==0.3.10
+
+# CORS
+flask-cors==5.0.1
+
+# Caching
+Flask-Caching==2.3.0
+cachelib==0.9.0
+
+# Forms / validation
+Flask-WTF==1.2.1
+WTForms==3.1.2
+email_validator==2.2.0
+
+# Excel / CSV exports
+Flask-Excel==0.0.7
+pyexcel==0.7.0
+pyexcel-io==0.6.6
+
+# Production WSGI server
+gunicorn==22.0.0
+
+# Utilities
+itsdangerous==2.2.0
+Jinja2==3.1.4
+MarkupSafe==2.1.5
+blinker==1.8.2
+click==8.1.7
+python-dateutil==2.9.0.post0
+pytz==2024.2
+tzdata==2024.2

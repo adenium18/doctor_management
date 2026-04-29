@@ -17,9 +17,6 @@ export default {
       <div class="card mb-4">
         <div class="card-body">
           <h6 class="fw-semibold mb-3">Profile Information</h6>
-          <div v-if="profileMsg" class="alert" :class="profileError ? 'alert-danger' : 'alert-success'">
-            {{ profileMsg }}
-          </div>
           <form @submit.prevent="saveProfile">
             <div class="mb-3">
               <label class="form-label">Email</label>
@@ -48,9 +45,6 @@ export default {
       <div class="card">
         <div class="card-body">
           <h6 class="fw-semibold mb-3">Change Password</h6>
-          <div v-if="pwMsg" class="alert" :class="pwError ? 'alert-danger' : 'alert-success'">
-            {{ pwMsg }}
-          </div>
           <form @submit.prevent="changePassword">
             <div class="mb-3">
               <label class="form-label">Current Password <span class="text-danger">*</span></label>
@@ -83,13 +77,9 @@ export default {
       token:        localStorage.getItem("auth-token"),
       loading:      true,
       profile:      { full_name: "", degree: "", address: "", email: "" },
-      savingProfile:false,
-      profileMsg:   null,
-      profileError: false,
-      pw:           { current: "", newPw: "", confirm: "" },
-      savingPw:     false,
-      pwMsg:        null,
-      pwError:      false
+      savingProfile: false,
+      pw:            { current: "", newPw: "", confirm: "" },
+      savingPw:      false
     };
   },
 
@@ -119,15 +109,13 @@ export default {
         });
         const data = await res.json();
         if (res.ok) {
-          this.profileMsg = "Profile updated successfully!";
+          this.$toast("Profile updated successfully!");
           localStorage.setItem("full_name", this.profile.full_name);
         } else {
-          this.profileError = true;
-          this.profileMsg   = data.error || "Failed to update profile.";
+          this.$toast(data.error || "Failed to update profile.", "danger");
         }
       } catch (err) {
-        this.profileError = true;
-        this.profileMsg   = "Network error. Please try again.";
+        this.$toast("Network error. Please try again.", "danger");
       } finally {
         this.savingProfile = false;
       }
@@ -146,19 +134,17 @@ export default {
         });
         const data = await res.json();
         if (res.ok) {
-          this.pwMsg = "Password changed! Please log in again.";
-          this.pw    = { current: "", newPw: "", confirm: "" };
+          this.$toast("Password changed! Logging out...", "info", 2500);
+          this.pw = { current: "", newPw: "", confirm: "" };
           setTimeout(() => {
             this.$store.commit("logout");
             this.$router.push("/user-login");
           }, 2000);
         } else {
-          this.pwError = true;
-          this.pwMsg   = data.error || "Failed to change password.";
+          this.$toast(data.error || "Failed to change password.", "danger");
         }
       } catch (err) {
-        this.pwError = true;
-        this.pwMsg   = "Network error. Please try again.";
+        this.$toast("Network error. Please try again.", "danger");
       } finally {
         this.savingPw = false;
       }

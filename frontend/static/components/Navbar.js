@@ -81,11 +81,14 @@ export default {
 
     data() {
         return {
-            role:            localStorage.getItem("role"),
-            isAuthenticated: !!localStorage.getItem("auth-token"),
-            searchQuery:     '',
-            searchType:      'name'
+            searchQuery: '',
+            searchType:  'name'
         };
+    },
+
+    computed: {
+        role()            { return this.$store.state.role  || localStorage.getItem("role"); },
+        isAuthenticated() { return this.$store.state.loggedIn || !!localStorage.getItem("auth-token"); }
     },
 
     methods: {

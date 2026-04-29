@@ -129,15 +129,23 @@ export default {
 
     async toggleDoctor(doctor) {
       const action = doctor.active ? "block" : "unblock";
-      if (!confirm(`${action.charAt(0).toUpperCase()+action.slice(1)} Dr. ${doctor.full_name}?`)) return;
+      const label  = action.charAt(0).toUpperCase() + action.slice(1);
+      if (!window.confirm(`${label} Dr. ${doctor.full_name}?`)) return;
       try {
         const res = await fetch(`/api/doctors/${doctor.id}/toggle`, {
           method:  "POST",
           headers: { "Authentication-Token": this.token }
         });
-        if (res.ok) { alert(`Doctor ${action}ed.`); this.fetchDoctors(); }
-        else alert(`Failed to ${action} doctor.`);
-      } catch (err) { console.error(err); }
+        if (res.ok) {
+          this.$toast(`Dr. ${doctor.full_name} ${action}ed.`, doctor.active ? "warning" : "success");
+          this.fetchDoctors();
+        } else {
+          this.$toast(`Failed to ${action} doctor.`, "danger");
+        }
+      } catch (err) {
+        console.error(err);
+        this.$toast("Network error. Please try again.", "danger");
+      }
     }
   },
 
