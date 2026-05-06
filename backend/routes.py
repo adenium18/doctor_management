@@ -1436,7 +1436,11 @@ def forgot_password():
 
         def send_async(application, message):
             with application.app_context():
-                Mail(application).send(message)
+                try:
+                    Mail(application).send(message)
+                    application.logger.info(f"Password reset email sent to {email}")
+                except Exception as e:
+                    application.logger.error(f"Failed to send reset email to {email}: {e}")
 
         Thread(target=send_async, args=(flask_app, msg), daemon=True).start()
 
