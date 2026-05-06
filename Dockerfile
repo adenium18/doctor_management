@@ -9,7 +9,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --chown=appuser:appgroup . .
 
-RUN rm -rf .venv .git instance __pycache__ backend/__pycache__ .env
+RUN rm -rf .venv .git instance __pycache__ backend/__pycache__ .env && \
+    mkdir -p /app/instance && \
+    chown -R appuser:appgroup /app
 
 USER appuser
 
