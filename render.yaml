@@ -3,7 +3,7 @@ services:
   - type: web
     name: dr-atoz-api
     runtime: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install setuptools && pip install -r requirements.txt
     startCommand: gunicorn app:app -c gunicorn.conf.py
     healthCheckPath: /
     autoDeploy: true           # deploy on every push to main
