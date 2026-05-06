@@ -1410,6 +1410,268 @@ def finance_by_weekday():
 # ---------------------------------------------------------------
 # PASSWORD RESET
 # ---------------------------------------------------------------
+# ---------------------------------------------------------------
+# UPLOAD — bulk import patients from CSV
+# ---------------------------------------------------------------
+@app.route("/api/upload/patients", methods=["POST"])
+@auth_required("token")
+@roles_required("doctor")
+def upload_patients():
+    from datetime import date as _date
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    try:
+        content = file.read().decode("utf-8-sig")  # utf-8-sig strips BOM from Excel exports
+        reader  = csv.DictReader(io.StringIO(content))
+
+        created = 0
+        errors  = []
+
+        for i, row in enumerate(reader, 2):
+            name = (row.get("Name") or row.get("full_name") or "").strip()
+            if not name:
+                continue
+
+            dob = (row.get("DOB") or "").strip() or None
+            age = None
+            if dob:
+                try:
+                    dob_d = datetime.strptime(dob, "%Y-%m-%d").date()
+                    today = _date.today()
+                    age   = today.year - dob_d.year - (
+                        (today.month, today.day) < (dob_d.month, dob_d.day)
+                    )
+                except Exception:
+                    dob = None
+            if not age:
+                try:
+                    age = int(float(row.get("Age") or 0)) or None
+                except Exception:
+                    age = None
+
+            weight = None
+            try:
+                w = float(row.get("Weight") or 0)
+                weight = w if w > 0 else None
+            except Exception:
+                pass
+
+            try:
+                p = Patient(
+                    full_name = name,
+                    dob       = dob,
+                    age       = age,
+                    sex       = (row.get("Sex") or "").strip() or None,
+                    phone     = (row.get("Phone") or "").strip() or None,
+                    address   = (row.get("Address") or "").strip() or None,
+                    pincode   = (row.get("Pincode") or "").strip() or None,
+                    weight    = weight,
+                )
+                db.session.add(p)
+                db.session.flush()
+                created += 1
+            except Exception as e:
+                errors.append(f"Row {i} ({name}): {str(e)}")
+
+        db.session.commit()
+        return jsonify({"created": created, "errors": errors}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
+
+
+# ---------------------------------------------------------------
+# UPLOAD — bulk import casepapers (earnings) from CSV
+# ---------------------------------------------------------------
+@app.route("/api/upload/casepapers", methods=["POST"])
+@auth_required("token")
+@roles_required("doctor")
+def upload_casepapers():
+    doctor_id = get_current_doctor_id()
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    try:
+        content = file.read().decode("utf-8-sig")
+        reader  = csv.DictReader(io.StringIO(content))
+
+        created = 0
+        errors  = []
+
+        for i, row in enumerate(reader, 2):
+            patient_name = (row.get("Patient") or "").strip()
+            # Skip blank rows and the TOTAL summary row
+            if not patient_name or patient_name.upper() == "TOTAL":
+                continue
+
+            phone = (row.get("Phone") or "").strip() or None
+
+            # Find existing patient by phone first, then by name
+            patient = None
+            if phone:
+                patient = Patient.query.filter_by(phone=phone).first()
+            if not patient:
+                patient = Patient.query.filter(
+                    Patient.full_name.ilike(patient_name)
+                ).first()
+            if not patient:
+                patient = Patient(full_name=patient_name, phone=phone)
+                db.session.add(patient)
+                db.session.flush()
+
+            # Parse date — try common formats
+            date_str   = (row.get("Date") or "").strip()
+            created_at = None
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+                try:
+                    created_at = datetime.strptime(date_str[:19], fmt[:len(date_str[:19])])
+                    break
+                except Exception:
+                    pass
+
+            # Parse charges — strip commas and ₹ signs
+            raw_charges = (row.get("Charges (₹)") or row.get("Charges") or "150")
+            raw_charges = str(raw_charges).replace(",", "").replace("₹", "").strip()
+            try:
+                charges = int(float(raw_charges))
+            except Exception:
+                charges = 150
+
+            try:
+                cp = Casepaper(
+                    patient_id   = patient.id,
+                    doctor_id    = doctor_id,
+                    symptoms     = (row.get("Symptoms") or "").strip(),
+                    diagnosis    = (row.get("Diagnosis") or "").strip(),
+                    prescription = "",
+                    charges      = charges,
+                )
+                if created_at:
+                    cp.created_at = created_at
+                db.session.add(cp)
+                db.session.flush()
+                created += 1
+            except Exception as e:
+                errors.append(f"Row {i} ({patient_name}): {str(e)}")
+
+        db.session.commit()
+        return jsonify({"created": created, "errors": errors}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
+
+
+# ---------------------------------------------------------------
+# ADMIN — per-doctor stats dashboard
+# ---------------------------------------------------------------
+@app.route("/api/admin/doctor-stats")
+@auth_required("token")
+@roles_required("admin")
+def admin_doctor_stats():
+    from datetime import date, timedelta
+
+    today           = date.today()
+    today_start     = datetime(today.year, today.month, today.day)
+    first_of_month  = datetime(today.year, today.month, 1)
+    thirty_days_ago = today_start - timedelta(days=29)
+    fourteen_ago    = today_start - timedelta(days=13)
+
+    result = []
+    for d in Doctor.query.all():
+        total_patients = db.session.query(Casepaper.patient_id)\
+            .filter_by(doctor_id=d.id).distinct().count()
+
+        total_casepapers = Casepaper.query.filter_by(doctor_id=d.id).count()
+
+        total_revenue = db.session.query(db.func.sum(Casepaper.charges))\
+            .filter_by(doctor_id=d.id).scalar() or 0
+
+        monthly_revenue = db.session.query(db.func.sum(Casepaper.charges)).filter(
+            Casepaper.doctor_id  == d.id,
+            Casepaper.created_at >= first_of_month
+        ).scalar() or 0
+
+        monthly_patients = db.session.query(Casepaper.patient_id).filter(
+            Casepaper.doctor_id  == d.id,
+            Casepaper.created_at >= first_of_month
+        ).distinct().count()
+
+        today_patients = db.session.query(Casepaper.patient_id).filter(
+            Casepaper.doctor_id  == d.id,
+            Casepaper.created_at >= today_start
+        ).distinct().count()
+
+        today_casepapers = Casepaper.query.filter(
+            Casepaper.doctor_id  == d.id,
+            Casepaper.created_at >= today_start
+        ).count()
+
+        recent_daily = db.session.query(
+            db.func.date(Casepaper.created_at).label("day"),
+            db.func.count(db.func.distinct(Casepaper.patient_id)).label("cnt")
+        ).filter(
+            Casepaper.doctor_id  == d.id,
+            Casepaper.created_at >= thirty_days_ago
+        ).group_by("day").all()
+        avg_per_day = round(sum(r.cnt for r in recent_daily) / 30, 1)
+
+        daily_rows = db.session.query(
+            db.func.date(Casepaper.created_at).label("day"),
+            db.func.count(db.func.distinct(Casepaper.patient_id)).label("patients"),
+            db.func.sum(Casepaper.charges).label("revenue")
+        ).filter(
+            Casepaper.doctor_id  == d.id,
+            Casepaper.created_at >= fourteen_ago
+        ).group_by("day").all()
+
+        day_map = {
+            str(r.day): {"patients": r.patients, "revenue": int(r.revenue or 0)}
+            for r in daily_rows
+        }
+
+        chart_labels = []
+        chart_patients = []
+        chart_revenue = []
+        cur = today - timedelta(days=13)
+        while cur <= today:
+            key  = str(cur)
+            slot = day_map.get(key, {"patients": 0, "revenue": 0})
+            chart_labels.append(cur.strftime("%d %b"))
+            chart_patients.append(slot["patients"])
+            chart_revenue.append(slot["revenue"])
+            cur += timedelta(days=1)
+
+        result.append({
+            "id":               d.id,
+            "user_id":          d.user_id,
+            "email":            d.user.email if d.user else None,
+            "full_name":        d.full_name,
+            "degree":           d.degree,
+            "address":          d.address,
+            "active":           d.active,
+            "total_patients":   total_patients,
+            "total_casepapers": total_casepapers,
+            "total_revenue":    int(total_revenue),
+            "monthly_revenue":  int(monthly_revenue),
+            "monthly_patients": monthly_patients,
+            "today_patients":   today_patients,
+            "today_casepapers": today_casepapers,
+            "avg_per_day":      avg_per_day,
+            "chart": {
+                "labels":   chart_labels,
+                "patients": chart_patients,
+                "revenue":  chart_revenue,
+            }
+        })
+
+    return jsonify(result), 200
+
+
 @app.route("/api/auth/forgot-password", methods=["POST"])
 def forgot_password():
     data  = request.json or {}

@@ -2,10 +2,10 @@ export default {
   template: `
   <div class="container p-4">
     <h2 class="fw-bold mb-1">Reports</h2>
-    <p class="text-muted mb-4">Download financial and clinical reports</p>
+    <p class="text-muted mb-4">Download or upload financial and clinical reports</p>
     <hr class="custom-hr">
 
-    <!-- Filters shared across reports -->
+    <!-- Filters shared across download reports -->
     <div class="card border-0 shadow-sm mb-5">
       <div class="card-body">
         <h6 class="fw-bold mb-3">Select Period</h6>
@@ -26,10 +26,10 @@ export default {
     <!-- Report Cards -->
     <div class="row g-4">
 
-      <!-- Monthly Earnings Excel -->
+      <!-- Monthly Earnings -->
       <div class="col-md-6">
         <div class="card border-0 shadow-sm h-100">
-          <div class="card-body">
+          <div class="card-body d-flex flex-column">
             <div class="fs-1 mb-2">📊</div>
             <h5 class="fw-bold">Monthly Earnings</h5>
             <p class="text-muted">
@@ -40,12 +40,61 @@ export default {
               Period: {{ filterMonth ? months[filterMonth-1] : 'All months' }}
               {{ filterYear || '' }}
             </div>
+
+            <!-- Download -->
             <button
-              class="btn btn-success w-100"
+              class="btn btn-success w-100 mb-3"
               @click="download('monthly-earnings')"
               :disabled="downloading === 'monthly-earnings'">
-              {{ downloading === 'monthly-earnings' ? 'Downloading...' : '⬇ Download Excel / CSV' }}
+              {{ downloading === 'monthly-earnings' ? 'Downloading...' : '⬇ Download CSV' }}
             </button>
+
+            <hr class="my-1">
+
+            <!-- Upload -->
+            <div class="mt-2">
+              <div class="text-muted small fw-semibold mb-2">⬆ Upload Earnings CSV</div>
+              <div class="text-muted" style="font-size:11px" class="mb-2">
+                Same columns as downloaded file:
+                <code>#, Date, Patient, Phone, Symptoms, Diagnosis, Charges (₹)</code>
+              </div>
+              <div class="d-flex gap-2 mt-2">
+                <input
+                  type="file"
+                  accept=".csv"
+                  ref="earningsFile"
+                  class="form-control form-control-sm"
+                  @change="earningsFileSelected = $event.target.files[0]"
+                />
+                <button
+                  class="btn btn-outline-success btn-sm"
+                  style="white-space:nowrap"
+                  @click="upload('casepapers', 'earningsFile')"
+                  :disabled="!earningsFileSelected || uploading === 'casepapers'">
+                  {{ uploading === 'casepapers' ? 'Uploading...' : 'Upload' }}
+                </button>
+              </div>
+              <div v-if="uploadResults.casepapers" class="mt-2">
+                <div
+                  :class="uploadResults.casepapers.error
+                    ? 'alert alert-danger py-1 px-2 small mb-1'
+                    : 'alert alert-success py-1 px-2 small mb-1'">
+                  <span v-if="uploadResults.casepapers.error">
+                    {{ uploadResults.casepapers.error }}
+                  </span>
+                  <span v-else>
+                    ✓ {{ uploadResults.casepapers.created }} casepaper(s) imported.
+                  </span>
+                </div>
+                <div
+                  v-for="(e, i) in (uploadResults.casepapers.errors || [])"
+                  :key="i"
+                  class="alert alert-warning py-1 px-2 mb-1"
+                  style="font-size:11px">
+                  {{ e }}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -53,7 +102,7 @@ export default {
       <!-- Patient List -->
       <div class="col-md-6">
         <div class="card border-0 shadow-sm h-100">
-          <div class="card-body">
+          <div class="card-body d-flex flex-column">
             <div class="fs-1 mb-2">🧑‍⚕️</div>
             <h5 class="fw-bold">Patient List</h5>
             <p class="text-muted">
@@ -61,17 +110,66 @@ export default {
               DOB, age, sex, and address.
             </p>
             <div class="text-muted small mb-3">All patients (no date filter)</div>
+
+            <!-- Download -->
             <button
-              class="btn btn-primary w-100"
+              class="btn btn-primary w-100 mb-3"
               @click="download('patient-list')"
               :disabled="downloading === 'patient-list'">
               {{ downloading === 'patient-list' ? 'Downloading...' : '⬇ Download CSV' }}
             </button>
+
+            <hr class="my-1">
+
+            <!-- Upload -->
+            <div class="mt-2">
+              <div class="text-muted small fw-semibold mb-2">⬆ Upload Patient List CSV</div>
+              <div class="text-muted mb-2" style="font-size:11px">
+                Same columns as downloaded file:
+                <code>#, Name, DOB, Age, Sex, Phone, Address, Pincode, Weight</code>
+              </div>
+              <div class="d-flex gap-2 mt-2">
+                <input
+                  type="file"
+                  accept=".csv"
+                  ref="patientFile"
+                  class="form-control form-control-sm"
+                  @change="patientFileSelected = $event.target.files[0]"
+                />
+                <button
+                  class="btn btn-outline-primary btn-sm"
+                  style="white-space:nowrap"
+                  @click="upload('patients', 'patientFile')"
+                  :disabled="!patientFileSelected || uploading === 'patients'">
+                  {{ uploading === 'patients' ? 'Uploading...' : 'Upload' }}
+                </button>
+              </div>
+              <div v-if="uploadResults.patients" class="mt-2">
+                <div
+                  :class="uploadResults.patients.error
+                    ? 'alert alert-danger py-1 px-2 small mb-1'
+                    : 'alert alert-success py-1 px-2 small mb-1'">
+                  <span v-if="uploadResults.patients.error">
+                    {{ uploadResults.patients.error }}
+                  </span>
+                  <span v-else>
+                    ✓ {{ uploadResults.patients.created }} patient(s) imported.
+                  </span>
+                </div>
+                <div
+                  v-for="(e, i) in (uploadResults.patients.errors || [])"
+                  :key="i"
+                  class="alert alert-warning py-1 px-2 mb-1"
+                  style="font-size:11px">
+                  {{ e }}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Tax Report -->
+      <!-- Tax Report — download only -->
       <div class="col-md-6">
         <div class="card border-0 shadow-sm h-100">
           <div class="card-body">
@@ -94,7 +192,7 @@ export default {
         </div>
       </div>
 
-      <!-- GST Summary -->
+      <!-- GST Summary — download only -->
       <div class="col-md-6">
         <div class="card border-0 shadow-sm h-100">
           <div class="card-body">
@@ -123,18 +221,23 @@ export default {
     <div class="alert alert-info mt-5">
       <strong>Note:</strong> All reports download as <strong>.csv</strong> files which open directly
       in Microsoft Excel, Google Sheets, or LibreOffice Calc.
-      For PDF output, open the CSV in Excel and use File → Export → PDF.
+      Upload CSVs must match the exact column headers of the downloaded file —
+      extra columns are ignored, missing required columns will be skipped.
     </div>
   </div>
   `,
 
   data() {
     return {
-      token:       localStorage.getItem("auth-token"),
-      userId:      localStorage.getItem("user_id"),
-      filterMonth: '',
-      filterYear:  new Date().getFullYear(),
-      downloading: null,
+      token:               localStorage.getItem("auth-token"),
+      userId:              localStorage.getItem("user_id"),
+      filterMonth:         '',
+      filterYear:          new Date().getFullYear(),
+      downloading:         null,
+      uploading:           null,
+      uploadResults:       {},
+      patientFileSelected: null,
+      earningsFileSelected:null,
       months: ["January","February","March","April","May","June",
                "July","August","September","October","November","December"]
     };
@@ -157,12 +260,10 @@ export default {
           return;
         }
 
-        // Trigger browser download
         const blob        = await res.blob();
         const url         = window.URL.createObjectURL(blob);
         const a           = document.createElement("a");
         a.href            = url;
-        // Get filename from content-disposition header if available
         const disposition = res.headers.get("Content-Disposition") || "";
         const match       = disposition.match(/filename=(.+)/);
         a.download        = match ? match[1] : `${reportType}.csv`;
@@ -176,6 +277,40 @@ export default {
         alert("Download failed. Please try again.");
       } finally {
         this.downloading = null;
+      }
+    },
+
+    async upload(type, refName) {
+      const fileInput = this.$refs[refName];
+      const file      = fileInput && fileInput.files[0];
+      if (!file) return;
+
+      this.uploading = type;
+      this.$set(this.uploadResults, type, null);
+
+      const form = new FormData();
+      form.append("file", file);
+
+      try {
+        const res  = await fetch(`/api/upload/${type}`, {
+          method:  "POST",
+          headers: { "Authentication-Token": this.token },
+          body:    form
+        });
+        const data = await res.json();
+
+        this.$set(this.uploadResults, type, data);
+
+        // Reset the file input
+        fileInput.value = "";
+        if (type === "patients")   this.patientFileSelected  = null;
+        if (type === "casepapers") this.earningsFileSelected = null;
+
+      } catch (err) {
+        console.error("Upload error:", err);
+        this.$set(this.uploadResults, type, { error: "Upload failed. Please try again." });
+      } finally {
+        this.uploading = null;
       }
     }
   }
