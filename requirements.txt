@@ -38,6 +38,7 @@ pyexcel-io==0.6.6
 gunicorn==22.0.0
 
 # Utilities
+setuptools
 itsdangerous==2.2.0
 Jinja2==3.1.4
 MarkupSafe==2.1.5
