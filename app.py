@@ -1,4 +1,18 @@
-import os
+import sys, types, os
+
+# passlib 1.7.4 uses the deprecated pkg_resources API which isn't available
+# in Python 3.12+ slim environments. Provide a minimal shim so it can load.
+if 'pkg_resources' not in sys.modules:
+    _m = types.ModuleType('pkg_resources')
+    def _resource_string(package, path):
+        import importlib as _il
+        mod = _il.import_module(package)
+        full = os.path.join(os.path.dirname(mod.__file__), path)
+        with open(full, 'rb') as _f:
+            return _f.read()
+    _m.resource_string = _resource_string
+    sys.modules['pkg_resources'] = _m
+
 from flask import Flask, jsonify
 from backend.config import LocalDevelopmentConfig, ProductionConfig
 from backend.models import db, User, Role
