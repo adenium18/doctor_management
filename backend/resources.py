@@ -81,8 +81,8 @@ patient_fields = {
 }
 
 class PatientAPI(Resource):
-    @roles_required("doctor")
     @auth_required("token")
+    @roles_required("doctor")
     def get(self):
         from flask_security import current_user
         doctor_id = None
@@ -272,8 +272,8 @@ casepaper_fields={
 }
 
 class CasepaperAPI(Resource):
-    @roles_required("doctor")
     @auth_required("token")
+    @roles_required("doctor")
     def get(self):
         doctor_id = current_user.doctor.id if (
             hasattr(current_user, "doctor") and current_user.doctor

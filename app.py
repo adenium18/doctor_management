@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, jsonify
 from backend.config import LocalDevelopmentConfig, ProductionConfig
 from backend.models import db, User, Role
 from flask_security import Security, SQLAlchemyUserDatastore, auth_required
@@ -36,18 +36,34 @@ def createApp():
 
     datastore = SQLAlchemyUserDatastore(db, User, Role)
     app.security = Security(app, datastore=datastore, register_blueprint=False)
-    app.app_context().push()
+
+    @app.security.unauthn_handler
+    def _unauthn_handler(mechanisms, headers=None):
+        return jsonify({"message": "Authentication required", "code": 401}), 401
+
+    @app.security.unauthz_handler
+    def _unauthz_handler(func_name, params):
+        return jsonify({"message": "Permission denied", "code": 403}), 403
+
+    # Push a temporary context so module-level code in resources/routes can
+    # reference app.security / app.cache.  This context is popped at the end
+    # of createApp(); every real WSGI request gets its own fresh context.
+    ctx = app.app_context()
+    ctx.push()
 
     from backend.resources import api
     api.init_app(app)
 
+    import backend.routes
+
+    ctx.pop()
     return app
 
 
 app = createApp()
 
-import backend.create_initial_data
-import backend.routes
+with app.app_context():
+    import backend.create_initial_data
 
 excel.init_excel(app)
 
