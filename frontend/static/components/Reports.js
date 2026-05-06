@@ -53,7 +53,7 @@ export default {
 
             <!-- Upload -->
             <div class="mt-2">
-              <div class="text-muted small fw-semibold mb-2">⬆ Upload Earnings CSV</div>
+              <div class="text-muted small fw-semibold mb-2">⬆ Upload Earnings (CSV or Excel)</div>
               <div class="text-muted" style="font-size:11px" class="mb-2">
                 Same columns as downloaded file:
                 <code>#, Date, Patient, Phone, Symptoms, Diagnosis, Charges (₹)</code>
@@ -61,7 +61,7 @@ export default {
               <div class="d-flex gap-2 mt-2">
                 <input
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx"
                   ref="earningsFile"
                   class="form-control form-control-sm"
                   @change="earningsFileSelected = $event.target.files[0]"
@@ -123,7 +123,7 @@ export default {
 
             <!-- Upload -->
             <div class="mt-2">
-              <div class="text-muted small fw-semibold mb-2">⬆ Upload Patient List CSV</div>
+              <div class="text-muted small fw-semibold mb-2">⬆ Upload Patient List (CSV or Excel)</div>
               <div class="text-muted mb-2" style="font-size:11px">
                 Same columns as downloaded file:
                 <code>#, Name, DOB, Age, Sex, Phone, Address, Pincode, Weight</code>
@@ -131,7 +131,7 @@ export default {
               <div class="d-flex gap-2 mt-2">
                 <input
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx"
                   ref="patientFile"
                   class="form-control form-control-sm"
                   @change="patientFileSelected = $event.target.files[0]"
@@ -219,10 +219,9 @@ export default {
 
     <!-- Note -->
     <div class="alert alert-info mt-5">
-      <strong>Note:</strong> All reports download as <strong>.csv</strong> files which open directly
-      in Microsoft Excel, Google Sheets, or LibreOffice Calc.
-      Upload CSVs must match the exact column headers of the downloaded file —
-      extra columns are ignored, missing required columns will be skipped.
+      <strong>Note:</strong> Reports download as <strong>.csv</strong> files (open in Excel, Google Sheets, or LibreOffice).
+      You can upload the file back as either <strong>.csv</strong> or <strong>.xlsx</strong> (Excel) —
+      column headers must match exactly. Extra columns are ignored; missing required columns will be skipped.
     </div>
   </div>
   `,

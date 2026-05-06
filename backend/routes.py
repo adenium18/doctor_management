@@ -1411,7 +1411,30 @@ def finance_by_weekday():
 # PASSWORD RESET
 # ---------------------------------------------------------------
 # ---------------------------------------------------------------
-# UPLOAD — bulk import patients from CSV
+# HELPER — parse uploaded CSV or Excel file into list of row dicts
+# ---------------------------------------------------------------
+def parse_upload_file(file):
+    filename = (file.filename or "").lower()
+    if filename.endswith(".xlsx"):
+        import openpyxl
+        wb   = openpyxl.load_workbook(file, read_only=True, data_only=True)
+        ws   = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            return []
+        headers = [str(h).strip() if h is not None else "" for h in rows[0]]
+        return [
+            {headers[i]: (str(row[i]).strip() if row[i] is not None else "")
+             for i in range(len(headers))}
+            for row in rows[1:]
+        ]
+    else:
+        content = file.read().decode("utf-8-sig")
+        return list(csv.DictReader(io.StringIO(content)))
+
+
+# ---------------------------------------------------------------
+# UPLOAD — bulk import patients from CSV or Excel
 # ---------------------------------------------------------------
 @app.route("/api/upload/patients", methods=["POST"])
 @auth_required("token")
@@ -1423,13 +1446,11 @@ def upload_patients():
         return jsonify({"error": "No file uploaded"}), 400
 
     try:
-        content = file.read().decode("utf-8-sig")  # utf-8-sig strips BOM from Excel exports
-        reader  = csv.DictReader(io.StringIO(content))
-
+        rows    = parse_upload_file(file)
         created = 0
         errors  = []
 
-        for i, row in enumerate(reader, 2):
+        for i, row in enumerate(rows, 2):
             name = (row.get("Name") or row.get("full_name") or "").strip()
             if not name:
                 continue
@@ -1496,13 +1517,11 @@ def upload_casepapers():
         return jsonify({"error": "No file uploaded"}), 400
 
     try:
-        content = file.read().decode("utf-8-sig")
-        reader  = csv.DictReader(io.StringIO(content))
-
+        rows    = parse_upload_file(file)
         created = 0
         errors  = []
 
-        for i, row in enumerate(reader, 2):
+        for i, row in enumerate(rows, 2):
             patient_name = (row.get("Patient") or "").strip()
             # Skip blank rows and the TOTAL summary row
             if not patient_name or patient_name.upper() == "TOTAL":
