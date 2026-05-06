@@ -1,3 +1,15 @@
+import sys, types, os as _os
+if 'pkg_resources' not in sys.modules:
+    _m = types.ModuleType('pkg_resources')
+    def _resource_string(package, path):
+        import importlib as _il
+        mod = _il.import_module(package)
+        full = _os.path.join(_os.path.dirname(mod.__file__), path)
+        with open(full, 'rb') as _f:
+            return _f.read()
+    _m.resource_string = _resource_string
+    sys.modules['pkg_resources'] = _m
+
 from flask_sqlalchemy import SQLAlchemy
 from flask_security import UserMixin, RoleMixin
 from datetime import datetime, timezone
