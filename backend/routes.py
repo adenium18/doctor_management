@@ -10,6 +10,8 @@ import os
 import calendar
 from flask import current_app as app, jsonify, request, render_template, Response
 from flask_security import auth_required, roles_required, verify_password, hash_password, current_user
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from datetime import datetime, date, timezone, timedelta
 from backend.models import User, db, Patient, Casepaper, Doctor, Expense
 
@@ -1402,3 +1404,59 @@ def finance_by_weekday():
             visits[wd]  += 1
 
     return jsonify({"labels": days, "revenue": revenue, "visits": visits}), 200
+
+
+# ---------------------------------------------------------------
+# PASSWORD RESET
+# ---------------------------------------------------------------
+@app.route("/api/auth/forgot-password", methods=["POST"])
+def forgot_password():
+    data  = request.json or {}
+    email = data.get("email", "").strip().lower()
+    user  = User.query.filter_by(email=email).first()
+
+    if user:
+        s     = URLSafeTimedSerializer(app.config["SECRET_KEY"])
+        token = s.dumps(email, salt="password-reset")
+        reset_url = f"{request.host_url}reset-password/{token}"
+
+        mail = Mail(app._get_current_object())
+        msg  = Message(
+            subject    = "Password Reset — Dr. A-to-Z",
+            recipients = [email],
+            body       = (
+                f"Hello,\n\n"
+                f"Click the link below to reset your password.\n"
+                f"This link expires in 1 hour.\n\n"
+                f"{reset_url}\n\n"
+                f"If you did not request this, ignore this email."
+            )
+        )
+        mail.send(msg)
+
+    # Always return success to avoid revealing whether email exists
+    return jsonify({"message": "If that email is registered, a reset link has been sent."}), 200
+
+
+@app.route("/api/auth/reset-password/<token>", methods=["POST"])
+def reset_password(token):
+    s = URLSafeTimedSerializer(app.config["SECRET_KEY"])
+    try:
+        email = s.loads(token, salt="password-reset", max_age=3600)
+    except SignatureExpired:
+        return jsonify({"error": "Reset link has expired. Please request a new one."}), 400
+    except BadSignature:
+        return jsonify({"error": "Invalid reset link."}), 400
+
+    data     = request.json or {}
+    new_pass = data.get("password", "")
+    if len(new_pass) < 4:
+        return jsonify({"error": "Password must be at least 4 characters."}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"error": "User not found."}), 404
+
+    user.password = hash_password(new_pass)
+    db.session.commit()
+    return jsonify({"message": "Password reset successfully. You can now sign in."}), 200

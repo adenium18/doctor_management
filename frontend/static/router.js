@@ -1,5 +1,6 @@
 import Home                from "./components/Home.js";
 import Login               from "./components/Login.js";
+import ResetPassword       from "./components/ResetPassword.js";
 import appinfo             from "./components/appinfo.js";
 import AdminHome           from "./components/AdminHome.js";
 import AllComplaints       from "./components/AllComplaints.js";
@@ -22,7 +23,12 @@ const routes = [
     {
         path: "/user-login",
         component: Login,
-        meta: { guestOnly: true }  // ✅ logged-in users should not see login page
+        meta: { guestOnly: true }
+    },
+    {
+        path: "/reset-password/:token",
+        component: ResetPassword,
+        meta: { guestOnly: true }
     },
 
     // Doctor routes

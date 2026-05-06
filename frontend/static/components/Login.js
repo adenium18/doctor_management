@@ -64,10 +64,43 @@ export default {
                     </button>
                 </form>
 
-                <p class="text-center text-muted mt-4 mb-0" style="font-size:12px">
+                <div class="text-center mt-3">
+                    <a href="#" class="text-muted text-decoration-none" style="font-size:13px"
+                        @click.prevent="switchTab('forgot')">Forgot password?</a>
+                </div>
+                <p class="text-center text-muted mt-3 mb-0" style="font-size:12px">
                     New to Dr. A-to-Z?
                     <a href="#" class="text-primary text-decoration-none fw-semibold"
                         @click.prevent="switchTab('register')">Create an account</a>
+                </p>
+            </div>
+
+            <!-- ───────── FORGOT PASSWORD ───────── -->
+            <div v-if="tab === 'forgot'">
+                <h5 class="fw-semibold mb-1">Reset Password</h5>
+                <p class="text-muted mb-3" style="font-size:13px">Enter your email and we'll send a reset link.</p>
+
+                <div class="alert alert-danger py-2 mb-3"   v-if="forgotError">{{ forgotError }}</div>
+                <div class="alert alert-success py-2 mb-3"  v-if="forgotSuccess">{{ forgotSuccess }}</div>
+
+                <form @submit.prevent="sendForgot" v-if="!forgotSuccess">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Email</label>
+                        <input type="email" class="form-control"
+                            v-model="forgotEmail"
+                            placeholder="doctor@clinic.com"
+                            required autofocus />
+                    </div>
+                    <button class="btn btn-primary w-100" type="submit"
+                        :disabled="forgotLoading"
+                        style="padding:10px; font-size:15px">
+                        {{ forgotLoading ? 'Sending...' : 'Send Reset Link' }}
+                    </button>
+                </form>
+
+                <p class="text-center text-muted mt-4 mb-0" style="font-size:12px">
+                    <a href="#" class="text-primary text-decoration-none fw-semibold"
+                        @click.prevent="switchTab('login')">&larr; Back to Sign In</a>
                 </p>
             </div>
 
@@ -168,16 +201,24 @@ export default {
             regError:   null,
             regSuccess: null,
             regLoading: false,
-            showRegPw:  false
+            showRegPw:  false,
+
+            // forgot password
+            forgotEmail:   "",
+            forgotError:   null,
+            forgotSuccess: null,
+            forgotLoading: false
         };
     },
 
     methods: {
         switchTab(t) {
-            this.tab        = t;
-            this.loginError = null;
-            this.regError   = null;
-            this.regSuccess = null;
+            this.tab          = t;
+            this.loginError   = null;
+            this.regError     = null;
+            this.regSuccess   = null;
+            this.forgotError  = null;
+            this.forgotSuccess= null;
         },
 
         async login() {
@@ -213,6 +254,29 @@ export default {
                 this.loginError = "Server error. Please try again.";
             } finally {
                 this.loginLoading = false;
+            }
+        },
+
+        async sendForgot() {
+            this.forgotError   = null;
+            this.forgotSuccess = null;
+            this.forgotLoading = true;
+            try {
+                const res  = await fetch("/api/auth/forgot-password", {
+                    method:  "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body:    JSON.stringify({ email: this.forgotEmail.trim().toLowerCase() })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    this.forgotSuccess = data.message;
+                } else {
+                    this.forgotError = data.error || "Something went wrong.";
+                }
+            } catch {
+                this.forgotError = "Server error. Please try again.";
+            } finally {
+                this.forgotLoading = false;
             }
         },
 

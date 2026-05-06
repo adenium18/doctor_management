@@ -19,6 +19,7 @@ from backend.models import db, User, Role
 from flask_security import Security, SQLAlchemyUserDatastore, auth_required
 from flask_caching import Cache
 from flask_cors import CORS
+from flask_mail import Mail
 import flask_excel as excel
 
 
@@ -47,6 +48,7 @@ def createApp():
     db.init_app(app)
     cache = Cache(app)
     app.cache = cache
+    Mail(app)
 
     datastore = SQLAlchemyUserDatastore(db, User, Role)
     app.security = Security(app, datastore=datastore, register_blueprint=False)
