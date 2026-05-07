@@ -6,12 +6,9 @@ export default {
 
   template: `
   <div>
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <div>
-        <h4 class="fw-bold mb-0">Casepapers</h4>
-        <p class="text-muted small mb-0">{{ filteredCasepapers.length }} record(s) found</p>
-      </div>
-      <button class="btn btn-primary btn-sm" @click="$router.push('/casepapers/new')">+ New Casepaper</button>
+    <div class="mb-4">
+      <h4 class="fw-bold mb-0">Casepapers</h4>
+      <p class="text-muted small mb-0">{{ filteredCasepapers.length }} record(s) found</p>
     </div>
 
     <!-- Filters -->

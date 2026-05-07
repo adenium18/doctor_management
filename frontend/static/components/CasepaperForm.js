@@ -5,11 +5,13 @@ export default {
     <!-- ── Sticky header ───────────────────────────────────────────── -->
     <div class="d-flex align-items-center justify-content-between px-3 py-2 bg-white border-bottom sticky-top" style="z-index:120">
       <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-sm btn-outline-secondary" @click="$router.push('/casepapers')">← Back</button>
+        <button v-if="isEdit" class="btn btn-sm btn-outline-secondary" @click="$router.push('/casepapers')">← Records</button>
         <div>
-          <div class="fw-bold" style="font-size:13px">{{ patient.full_name || 'New Casepaper' }}</div>
+          <div class="fw-bold" style="font-size:13px">
+            {{ isEdit ? (patient.full_name || 'Edit Casepaper') : 'New Casepaper' }}
+          </div>
           <div class="text-muted" style="font-size:11px">
-            {{ isEdit ? 'Editing #' + $route.params.id : 'New Record' }}
+            {{ isEdit ? 'Editing #' + $route.params.id : 'Fill in patient details and clinical notes' }}
             <span v-if="patient.age" class="ms-1">· {{ patient.age }}y {{ patient.sex || '' }}</span>
           </div>
         </div>
@@ -537,7 +539,8 @@ export default {
               <input v-model="billing.next_followup" type="date" class="form-control" />
             </div>
             <div class="col-md-3 d-flex gap-2">
-              <button class="btn btn-secondary flex-grow-1" @click="$router.push('/casepapers')">Cancel</button>
+              <button v-if="isEdit" class="btn btn-secondary flex-grow-1" @click="$router.push('/casepapers')">Cancel</button>
+              <button v-else class="btn btn-outline-secondary flex-grow-1" @click="resetForm">Clear</button>
               <button class="btn btn-primary flex-grow-1" @click="save" :disabled="saving">
                 {{ saving ? 'Saving…' : (isEdit ? 'Update' : 'Save') }}
               </button>
@@ -807,7 +810,12 @@ export default {
         });
         const data = await res.json();
         if (res.ok) {
-          this.$router.push("/casepapers");
+          if (this.isEdit) {
+            this.$router.push("/casepapers");
+          } else {
+            this.$toast && this.$toast("Casepaper saved successfully!");
+            this.resetForm();
+          }
         } else {
           this.saveError = data.error || "Save failed.";
         }
@@ -908,6 +916,24 @@ export default {
       } catch (err) {
         console.error("Failed to load casepaper:", err);
       }
+    },
+
+    resetForm() {
+      const now = new Date();
+      const pad = n => String(n).padStart(2, "0");
+      const localNow = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      this.patient        = { id: null, full_name: "", dob: "", age: null, sex: "", weight: null, height: null, blood_group: "", phone: "", address: "", pincode: "", emergency_contact: "" };
+      this.patientQuery   = "";
+      this.showPatientForm= false;
+      this.visit          = { created_at: localNow, visit_type: "new", duration_complaints: "", chief_complaints: "", hpi: "", past_medical_history: "", family_history: "", allergy_history: "", current_medications: "", lifestyle_history: "" };
+      this.exam           = { pulse: "", bp: "", temperature: "", spo2: "", respiratory_rate: "", weight: null, height: null, symptoms: "", general_examination: "", systemic_examination: "", findings: "" };
+      this.investigations = [];
+      this.medicines      = [];
+      this.diag           = { provisional_diagnosis: "", final_diagnosis: "", icd_code: "", severity: "", notes: "" };
+      this.treatment      = { injection_given: "", procedure_done: "", dressing: "", nebulization: "", physiotherapy: "", surgery_notes: "", treatment_notes: "" };
+      this.billing        = { charges: 150, payment_status: "paid", next_followup: "", notes: "" };
+      this.activeTab      = 0;
+      this.saveError      = null;
     },
 
     formatDate(dt) {
