@@ -7,6 +7,7 @@
 import csv
 import io
 import os
+import json
 import calendar
 from flask import current_app as app, jsonify, request, render_template, Response
 from flask_security import auth_required, roles_required, verify_password, hash_password, current_user
@@ -95,14 +96,17 @@ def manage_patients():
                 age = None
 
         new_patient = Patient(
-            full_name = data.get("full_name", "").strip(),
-            sex       = data.get("sex"),
-            address   = data.get("address", ""),
-            pincode   = data.get("pincode", ""),
-            dob       = data.get("dob", None),
-            age       = age,
-            weight    = data.get("weight", None),
-            phone     = data.get("phone", None),
+            full_name         = data.get("full_name", "").strip(),
+            sex               = data.get("sex"),
+            address           = data.get("address", ""),
+            pincode           = data.get("pincode", ""),
+            dob               = data.get("dob", None),
+            age               = age,
+            weight            = data.get("weight", None),
+            height            = data.get("height", None),
+            blood_group       = data.get("blood_group", None),
+            phone             = data.get("phone", None),
+            emergency_contact = data.get("emergency_contact", None),
         )
         db.session.add(new_patient)
         db.session.commit()
@@ -226,16 +230,19 @@ def search_patient():
         ).order_by(Casepaper.created_at.desc()).first()
 
         result.append({
-            "id":         patient.id,
-            "full_name":  patient.full_name,
-            "age":        patient.age,
-            "sex":        patient.sex,
-            "address":    patient.address,
-            "pincode":    patient.pincode,
-            "dob":        patient.dob,
-            "weight":     patient.weight,
-            "phone":      patient.phone,
-            "last_visit": latest.created_at.isoformat() if latest and latest.created_at else None
+            "id":               patient.id,
+            "full_name":        patient.full_name,
+            "age":              patient.age,
+            "sex":              patient.sex,
+            "address":          patient.address,
+            "pincode":          patient.pincode,
+            "dob":              patient.dob,
+            "weight":           patient.weight,
+            "height":           getattr(patient, "height", None),
+            "blood_group":      getattr(patient, "blood_group", None),
+            "phone":            patient.phone,
+            "emergency_contact":getattr(patient, "emergency_contact", None),
+            "last_visit":       latest.created_at.isoformat() if latest and latest.created_at else None
         })
 
     return jsonify(result), 200
@@ -953,9 +960,50 @@ def get_casepapers_by_patient(patient_id):
 
 
 # ---------------------------------------------------------------
-# CASEPAPER UPDATE — include new fields
+# CASEPAPER GET single + UPDATE — include extended fields
 # ---------------------------------------------------------------
-@app.route("/api/casepaper/<int:id>", methods=["PUT"])
+def _cp_to_dict(cp):
+    """Serialise a Casepaper row to a dict for the form."""
+    patient = cp.patient
+    return {
+        "id":            cp.id,
+        "patient_id":    cp.patient_id,
+        "created_at":    cp.created_at.isoformat() if cp.created_at else None,
+        "symptoms":      cp.symptoms,
+        "diagnosis":     cp.diagnosis,
+        "prescription":  cp.prescription,
+        "charges":       cp.charges or 150,
+        "visit_type":    cp.visit_type     or "consultation",
+        "payment_status":cp.payment_status or "paid",
+        "notes":         cp.notes          or "",
+        "next_followup": cp.next_followup  or "",
+        # Extended JSON blobs
+        "visit_info":       json.loads(cp.visit_info       or "{}"),
+        "vitals":           json.loads(cp.vitals           or "{}"),
+        "examination":      json.loads(cp.examination      or "{}"),
+        "diagnosis_detail": json.loads(cp.diagnosis_detail or "{}"),
+        "treatment_detail": json.loads(cp.treatment_detail or "{}"),
+        "medicines":        json.loads(cp.medicines        or "[]"),
+        "investigations":   json.loads(cp.investigations   or "[]"),
+        # Patient info
+        "patient": {
+            "id":               patient.id if patient else None,
+            "full_name":        patient.full_name        if patient else "",
+            "dob":              patient.dob              if patient else "",
+            "age":              patient.age              if patient else None,
+            "sex":              patient.sex              if patient else "",
+            "weight":           patient.weight           if patient else None,
+            "height":           getattr(patient, "height",            None),
+            "blood_group":      getattr(patient, "blood_group",       ""),
+            "phone":            patient.phone            if patient else "",
+            "address":          patient.address          if patient else "",
+            "pincode":          patient.pincode          if patient else "",
+            "emergency_contact":getattr(patient, "emergency_contact", ""),
+        } if patient else {}
+    }
+
+
+@app.route("/api/casepaper/<int:id>", methods=["GET", "PUT"])
 @auth_required("token")
 @roles_required("doctor")
 def update_casepaper(id):
@@ -965,13 +1013,29 @@ def update_casepaper(id):
     if casepaper.doctor_id != doctor_id:
         return jsonify({"error": "Access denied"}), 403
 
+    if request.method == "GET":
+        return jsonify(_cp_to_dict(casepaper)), 200
+
     data = request.get_json()
+
+    # Core display fields
     casepaper.symptoms       = data.get("symptoms",       casepaper.symptoms)
     casepaper.diagnosis      = data.get("diagnosis",      casepaper.diagnosis)
     casepaper.prescription   = data.get("prescription",   casepaper.prescription)
     casepaper.charges        = data.get("charges",        casepaper.charges)
     casepaper.visit_type     = data.get("visit_type",     casepaper.visit_type     or "consultation")
     casepaper.payment_status = data.get("payment_status", casepaper.payment_status or "paid")
+    casepaper.notes          = data.get("notes",          casepaper.notes          or "")
+    casepaper.next_followup  = data.get("next_followup",  casepaper.next_followup)
+
+    # Extended JSON blobs — only overwrite if key present in payload
+    for field in ("visit_info", "vitals", "examination", "diagnosis_detail", "treatment_detail"):
+        if field in data:
+            setattr(casepaper, field, json.dumps(data[field]) if isinstance(data[field], dict) else data[field])
+    for field in ("medicines", "investigations"):
+        if field in data:
+            setattr(casepaper, field, json.dumps(data[field]) if isinstance(data[field], list) else data[field])
+
     db.session.commit()
     return jsonify({"message": "Casepaper updated"}), 200
 
@@ -1005,9 +1069,27 @@ def create_casepaper():
     cp.payment_status = data.get("payment_status", "paid")
     cp.notes          = data.get("notes",          "")
     cp.next_followup  = data.get("next_followup",  None)
+
+    # Extended JSON blobs
+    for field in ("visit_info", "vitals", "examination", "diagnosis_detail", "treatment_detail"):
+        val = data.get(field)
+        if val is not None:
+            setattr(cp, field, json.dumps(val) if isinstance(val, dict) else val)
+    for field in ("medicines", "investigations"):
+        val = data.get(field)
+        if val is not None:
+            setattr(cp, field, json.dumps(val) if isinstance(val, list) else val)
+
+    # Override created_at if provided (form allows setting visit date/time)
+    if data.get("created_at"):
+        try:
+            cp.created_at = datetime.strptime(data["created_at"][:16], "%Y-%m-%dT%H:%M")
+        except Exception:
+            pass
+
     db.session.add(cp)
     db.session.commit()
-    return jsonify({"message": "Casepaper created"}), 201
+    return jsonify({"message": "Casepaper created", "id": cp.id}), 201
 
 
 # ---------------------------------------------------------------

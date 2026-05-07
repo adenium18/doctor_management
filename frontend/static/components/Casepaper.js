@@ -11,6 +11,7 @@ export default {
         <h4 class="fw-bold mb-0">Casepapers</h4>
         <p class="text-muted small mb-0">{{ filteredCasepapers.length }} record(s) found</p>
       </div>
+      <button class="btn btn-primary btn-sm" @click="$router.push('/casepapers/new')">+ New Casepaper</button>
     </div>
 
     <!-- Filters -->
@@ -83,7 +84,7 @@ export default {
                 <span class="badge bg-success">&#8377; {{ c.charges ?? 150 }}</span>
               </td>
               <td class="text-nowrap">
-                <button class="btn btn-sm btn-outline-secondary me-1" @click="openEditModal(c)">Edit</button>
+                <button class="btn btn-sm btn-outline-primary me-1" @click="$router.push('/casepapers/' + c.casepaper_id)">Edit</button>
                 <button class="btn btn-sm btn-outline-danger" @click="openDeleteModal(c.casepaper_id)">Delete</button>
               </td>
             </tr>

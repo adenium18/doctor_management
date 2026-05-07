@@ -9,6 +9,7 @@ import PatientHistory      from "./components/PatientHistory.js";
 import DoctorSignup        from "./components/DoctorSignup.js";
 import Patients            from "./components/Patients.js";
 import Casepaper           from "./components/Casepaper.js";
+import CasepaperForm       from "./components/CasepaperForm.js";
 import Dashboard           from "./components/Dashboard.js";
 import Billing             from "./components/Billing.js";
 import ExpenseTracker      from "./components/ExpenseTracker.js";
@@ -35,7 +36,9 @@ const routes = [
     { path: "/",                   component: Home,                meta: { requiresAuth: true, doctorOnly: true } },
     { path: "/dashboard",          component: Dashboard,           meta: { requiresAuth: true, doctorOnly: true } },
     { path: "/patients",           component: Patients,            meta: { requiresAuth: true, doctorOnly: true } },
-    { path: "/casepapers",         component: Casepaper,           meta: { requiresAuth: true, doctorOnly: true } },
+    { path: "/casepapers",          component: Casepaper,           meta: { requiresAuth: true, doctorOnly: true } },
+    { path: "/casepapers/new",      component: CasepaperForm,       meta: { requiresAuth: true, doctorOnly: true } },
+    { path: "/casepapers/:id",      component: CasepaperForm,       meta: { requiresAuth: true, doctorOnly: true } },
     { path: "/billing",            component: Billing,             meta: { requiresAuth: true, doctorOnly: true } },
     { path: "/expenses",           component: ExpenseTracker,      meta: { requiresAuth: true, doctorOnly: true } },
     { path: "/reports",            component: Reports,             meta: { requiresAuth: true, doctorOnly: true } },

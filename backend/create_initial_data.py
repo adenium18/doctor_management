@@ -2,6 +2,44 @@ import os
 from flask_security import SQLAlchemyUserDatastore, hash_password
 from backend.models import db, Doctor
 from flask import current_app as app
+from sqlalchemy import inspect, text
+
+
+def _add_missing_columns():
+    """Add new columns to existing tables without dropping data."""
+    inspector = inspect(db.engine)
+    dialect   = db.engine.dialect.name
+    text_type = "TEXT"
+
+    patient_cols    = {c["name"] for c in inspector.get_columns("patient")}
+    casepaper_cols  = {c["name"] for c in inspector.get_columns("casepaper")}
+
+    patient_new = [
+        ("height",            "FLOAT"),
+        ("blood_group",       "VARCHAR(10)"),
+        ("emergency_contact", "VARCHAR(100)"),
+    ]
+    casepaper_new = [
+        ("visit_info",       text_type),
+        ("vitals",           text_type),
+        ("examination",      text_type),
+        ("diagnosis_detail", text_type),
+        ("treatment_detail", text_type),
+        ("medicines",        text_type),
+        ("investigations",   text_type),
+    ]
+
+    changed = False
+    for col, typ in patient_new:
+        if col not in patient_cols:
+            db.session.execute(text(f"ALTER TABLE patient ADD COLUMN {col} {typ}"))
+            changed = True
+    for col, typ in casepaper_new:
+        if col not in casepaper_cols:
+            db.session.execute(text(f"ALTER TABLE casepaper ADD COLUMN {col} {typ}"))
+            changed = True
+    if changed:
+        db.session.commit()
 
 # Seed credentials — read from env vars in production, use safe defaults in dev.
 # On first deploy set these in your platform's environment variables dashboard.
@@ -12,6 +50,7 @@ DOCTOR_PASSWORD= os.environ.get("DOCTOR_PASSWORD", "hZ76S0_vC_ZbT9TAH3bX3g")
 
 with app.app_context():
     db.create_all()
+    _add_missing_columns()
 
     userdatastore: SQLAlchemyUserDatastore = app.security.datastore
 

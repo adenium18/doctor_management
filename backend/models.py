@@ -56,31 +56,42 @@ class Doctor(db.Model):
 
 
 class Patient(db.Model):
-    id        = db.Column(db.Integer(), primary_key=True)
-    full_name = db.Column(db.String(255), nullable=False)
-    address   = db.Column(db.String(255))
-    pincode   = db.Column(db.String())
-    dob       = db.Column(db.String(), nullable=True)
-    age       = db.Column(db.Integer(), nullable=True)
-    weight    = db.Column(db.Integer())
-    sex       = db.Column(db.String())
-    phone     = db.Column(db.String())
-    active    = db.Column(db.Boolean, default=True)
+    id                = db.Column(db.Integer(), primary_key=True)
+    full_name         = db.Column(db.String(255), nullable=False)
+    address           = db.Column(db.String(255))
+    pincode           = db.Column(db.String())
+    dob               = db.Column(db.String(), nullable=True)
+    age               = db.Column(db.Integer(), nullable=True)
+    weight            = db.Column(db.Float())
+    height            = db.Column(db.Float(), nullable=True)
+    blood_group       = db.Column(db.String(10), nullable=True)
+    sex               = db.Column(db.String())
+    phone             = db.Column(db.String())
+    emergency_contact = db.Column(db.String(100), nullable=True)
+    active            = db.Column(db.Boolean, default=True)
 
 
 class Casepaper(db.Model):
     id             = db.Column(db.Integer(), primary_key=True)
     patient_id     = db.Column(db.Integer(), db.ForeignKey("patient.id"))
     doctor_id      = db.Column(db.Integer(), db.ForeignKey("doctor.id"), nullable=False)
+    # Core fields (used in list view / search / reports)
     symptoms       = db.Column(db.String())
     diagnosis      = db.Column(db.String())
     prescription   = db.Column(db.String())
     charges        = db.Column(db.Integer(), default=150)
-    # Financial / clinical metadata
-    payment_status = db.Column(db.String(20), default="paid")    # paid | unpaid | partial
-    visit_type     = db.Column(db.String(50), default="consultation")  # consultation | follow_up | procedure | emergency
+    payment_status = db.Column(db.String(20), default="paid")
+    visit_type     = db.Column(db.String(50), default="consultation")
     notes          = db.Column(db.String(500), default="")
     next_followup  = db.Column(db.String(), nullable=True)
+    # Extended clinical data (stored as JSON text)
+    visit_info       = db.Column(db.Text(), nullable=True)   # chief complaints, HPI, history
+    vitals           = db.Column(db.Text(), nullable=True)   # pulse, bp, temp, spo2, rr
+    examination      = db.Column(db.Text(), nullable=True)   # general, systemic, findings
+    diagnosis_detail = db.Column(db.Text(), nullable=True)   # provisional, final, ICD, severity
+    treatment_detail = db.Column(db.Text(), nullable=True)   # injections, procedures, dressing…
+    medicines        = db.Column(db.Text(), nullable=True)   # JSON array of medicine rows
+    investigations   = db.Column(db.Text(), nullable=True)   # JSON array of investigation rows
     # Timestamps
     created_at     = db.Column(db.DateTime(), default=utcnow)
     updated_at     = db.Column(db.DateTime(), default=utcnow, onupdate=utcnow)
