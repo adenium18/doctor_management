@@ -447,8 +447,23 @@ export default {
                   <button class="btn btn-sm btn-outline-danger" style="padding:4px 8px" @click="medicines.splice(i,1)">✕</button>
                 </div>
               </div>
-              <div class="mt-1">
-                <input v-model="med.notes" class="form-control form-control-sm" placeholder="Timing / extra notes (e.g. 8AM & 8PM)" />
+              <!-- Timing dropdowns: count matches frequency -->
+              <div class="mt-1 d-flex flex-wrap align-items-center gap-1">
+                <span class="text-muted small fw-semibold me-1" style="min-width:38px">Time:</span>
+                <template v-for="ti in (freqCounts[med.frequency] || 1)">
+                  <select :key="'t'+i+'-'+ti"
+                    class="form-select form-select-sm"
+                    style="width:118px"
+                    v-model="med.timing[ti-1]">
+                    <option value="">— select —</option>
+                    <option v-for="opt in timingOptions" :key="opt" :value="opt">{{ opt }}</option>
+                  </select>
+                  <span v-if="ti < (freqCounts[med.frequency] || 1)" class="text-muted small">·</span>
+                </template>
+                <input v-model="med.notes"
+                  class="form-control form-control-sm"
+                  style="min-width:100px;max-width:220px"
+                  placeholder="Extra notes…" />
               </div>
             </div>
           </div>
@@ -501,7 +516,11 @@ export default {
                     <td>{{ m.dosage }}</td>
                     <td>{{ m.frequency }}</td>
                     <td>{{ m.duration }}</td>
-                    <td>{{ m.food }}<span v-if="m.notes"> · {{ m.notes }}</span></td>
+                    <td>
+                      {{ m.food }}
+                      <span v-if="timingStr(m)"> · {{ timingStr(m) }}</span>
+                      <span v-if="m.notes"> · {{ m.notes }}</span>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -636,7 +655,16 @@ export default {
 
       quickInv: ["CBC", "LFT", "KFT", "Blood Sugar (F)", "Blood Sugar (PP)", "HbA1c",
                  "Urine R/M", "X-Ray Chest", "ECG", "Lipid Profile", "Thyroid (TSH)",
-                 "USG Abdomen", "MRI Brain", "CT Scan", "Sputum AFB", "Dengue NS1"]
+                 "USG Abdomen", "MRI Brain", "CT Scan", "Sputum AFB", "Dengue NS1"],
+
+      freqCounts: { OD: 1, BD: 2, TDS: 3, QID: 4, SOS: 1, HS: 1, Stat: 1 },
+
+      timingOptions: [
+        "6:00 AM", "7:00 AM", "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
+        "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM",
+        "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM", "10:00 PM", "11:00 PM",
+        "12:00 AM"
+      ]
     };
   },
 
@@ -717,16 +745,16 @@ export default {
 
     // ── Medicines ───────────────────────────────────────────────────
     addMedicine() {
-      this.medicines.push({ name: "", strength: "", dosage: "1 tab", frequency: "BD", duration: "5 days", food: "After Food", notes: "" });
+      this.medicines.push({ name: "", strength: "", dosage: "1 tab", frequency: "BD", duration: "5 days", food: "After Food", timing: ["8:00 AM", "8:00 PM", "", ""], notes: "" });
     },
     addTemplate() {
       const tpl = [
-        { name: "Paracetamol",      strength: "650mg", dosage: "1 tab", frequency: "TDS", duration: "5 days",  food: "After Food", notes: "" },
-        { name: "Amoxicillin",      strength: "500mg", dosage: "1 cap", frequency: "TDS", duration: "5 days",  food: "After Food", notes: "" },
-        { name: "Pantoprazole",     strength: "40mg",  dosage: "1 tab", frequency: "OD",  duration: "5 days",  food: "Before Food",notes: "Morning" },
-        { name: "Cetirizine",       strength: "10mg",  dosage: "1 tab", frequency: "OD",  duration: "5 days",  food: "After Food", notes: "Night" },
+        { name: "Paracetamol",  strength: "650mg", dosage: "1 tab", frequency: "TDS", duration: "5 days", food: "After Food",  timing: ["8:00 AM", "2:00 PM", "8:00 PM", ""], notes: "" },
+        { name: "Amoxicillin",  strength: "500mg", dosage: "1 cap", frequency: "TDS", duration: "5 days", food: "After Food",  timing: ["8:00 AM", "2:00 PM", "8:00 PM", ""], notes: "" },
+        { name: "Pantoprazole", strength: "40mg",  dosage: "1 tab", frequency: "OD",  duration: "5 days", food: "Before Food", timing: ["8:00 AM", "",        "",        ""], notes: "" },
+        { name: "Cetirizine",   strength: "10mg",  dosage: "1 tab", frequency: "HS",  duration: "5 days", food: "After Food",  timing: ["10:00 PM","",        "",        ""], notes: "" },
       ];
-      tpl.forEach(m => this.medicines.push({ ...m }));
+      tpl.forEach(m => this.medicines.push({ ...m, timing: [...m.timing] }));
     },
 
     // ── Save ────────────────────────────────────────────────────────
@@ -903,7 +931,14 @@ export default {
           treatment_notes: td.treatment_notes || "",
         };
 
-        this.medicines      = Array.isArray(d.medicines)     ? d.medicines      : [];
+        this.medicines = Array.isArray(d.medicines)
+          ? d.medicines.map(m => ({
+              ...m,
+              timing: Array.isArray(m.timing)
+                ? [...m.timing, "", "", "", ""].slice(0, 4)
+                : ["", "", "", ""]
+            }))
+          : [];
         this.investigations = Array.isArray(d.investigations) ? d.investigations : [];
 
         this.billing = {
@@ -916,6 +951,12 @@ export default {
       } catch (err) {
         console.error("Failed to load casepaper:", err);
       }
+    },
+
+    timingStr(m) {
+      if (!m.timing || !Array.isArray(m.timing)) return "";
+      const count = this.freqCounts[m.frequency] || 1;
+      return m.timing.slice(0, count).filter(Boolean).join(" & ");
     },
 
     resetForm() {
