@@ -282,6 +282,7 @@ def get_casepapers():
         Casepaper.charges,
         Casepaper.visit_type,
         Casepaper.payment_status,
+        Casepaper.payment_method,
         Patient.full_name,
         Patient.pincode,
         Patient.address,
@@ -318,6 +319,7 @@ def get_casepapers():
         "charges":        r.charges if r.charges is not None else 150,
         "visit_type":     r.visit_type     or "consultation",
         "payment_status": r.payment_status or "paid",
+        "payment_method": getattr(r, "payment_method", None) or "cash",
         "full_name":      r.full_name,
         "pincode":        r.pincode,
         "address":        r.address,
@@ -575,10 +577,12 @@ def report_monthly_earnings():
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([
-        "Date", "Patient Name", "Address", "DOB", "Age", "Sex", "Contact",
-        "Complaints", "History", "Medicines", "Treatment Taken",
-        "Fees Collected", "Cash", "UPI", "NetBanking", "Other"
+        "Date", "Patient Name", "Address", "DOB", "Age/Sex", "Contact",
+        "Complaints", "History", "Medicines Taking", "Treatment Given",
+        "Fees Collected", "Payment Method"
     ])
+
+    pm_labels = {"cash": "Cash", "upi": "UPI", "netbanking": "NetBanking", "other": "Other"}
 
     for r in rows:
         vi = {}
@@ -612,31 +616,23 @@ def report_monthly_earnings():
         except Exception:
             pass
 
-        pm      = (r.payment_method or "cash").lower()
-        charges = r.charges or 0
-        cash_amt = charges if pm == "cash"       else 0
-        upi_amt  = charges if pm == "upi"        else 0
-        nb_amt   = charges if pm == "netbanking" else 0
-        other_amt = charges if pm not in ("cash", "upi", "netbanking") else 0
-
+        pm       = (r.payment_method or "cash").lower()
+        age_sex  = "/".join(filter(None, [r.sex or "", str(r.age) if r.age else ""]))
         date_str = r.created_at.strftime("%Y-%m-%d") if r.created_at else ""
+
         writer.writerow([
             date_str,
             r.full_name,
             r.address or "",
             r.dob or "",
-            r.age or "",
-            r.sex or "",
+            age_sex,
             r.phone or "",
             vi.get("chief_complaints", r.symptoms or ""),
             vi.get("past_medical_history", vi.get("hpi", "")),
             "; ".join(meds_list),
             "; ".join(filter(None, treatment_parts)),
-            charges,
-            cash_amt,
-            upi_amt,
-            nb_amt,
-            other_amt
+            r.charges or 0,
+            pm_labels.get(pm, "Cash")
         ])
 
     output.seek(0)
@@ -1717,8 +1713,18 @@ def upload_casepapers():
             phone   = (row.get("Contact") or row.get("Phone") or "").strip() or None
             address = (row.get("Address") or "").strip() or None
             dob     = (row.get("DOB") or "").strip() or None
+
+            # Age/Sex combined column (e.g. "M/32" or "F/45") — also accept separate columns
+            age_sex_raw = (row.get("Age/Sex") or "").strip()
             sex     = (row.get("Sex") or "").strip() or None
             age_str = (row.get("Age") or "").strip()
+            if age_sex_raw:
+                parts = [p.strip() for p in age_sex_raw.split("/")]
+                for p in parts:
+                    if p.isalpha() and not sex:
+                        sex = p
+                    elif p.isdigit() and not age_str:
+                        age_str = p
             try:
                 age = int(float(age_str)) if age_str else None
             except Exception:
@@ -1756,16 +1762,11 @@ def upload_casepapers():
             except Exception:
                 charges = 150
 
-            # Determine payment method from per-method columns (UPI/NetBanking/Other/Cash)
-            payment_method = "cash"
-            for pm_col, pm_key in [("UPI", "upi"), ("NetBanking", "netbanking"), ("Other", "other"), ("Cash", "cash")]:
-                val = str(row.get(pm_col) or "0").replace(",", "").replace("₹", "").strip()
-                try:
-                    if float(val) > 0:
-                        payment_method = pm_key
-                        break
-                except Exception:
-                    pass
+            # Payment method — single column, normalise to internal key
+            pm_raw = (row.get("Payment Method") or "cash").strip().lower()
+            pm_map = {"cash": "cash", "upi": "upi", "netbanking": "netbanking",
+                      "net banking": "netbanking", "other": "other"}
+            payment_method = pm_map.get(pm_raw, "cash")
 
             # Build visit_info JSON
             complaints = (row.get("Complaints") or "").strip()
@@ -1774,12 +1775,12 @@ def upload_casepapers():
             if complaints: vi_dict["chief_complaints"] = complaints
             if history:    vi_dict["past_medical_history"] = history
 
-            # Build treatment_detail JSON
-            treatment_str = (row.get("Treatment Taken") or "").strip()
+            # Build treatment_detail JSON — accept both new and old column names
+            treatment_str = (row.get("Treatment Given") or row.get("Treatment Taken") or "").strip()
             td_dict = {"treatment_notes": treatment_str} if treatment_str else {}
 
-            # Build medicines JSON
-            medicines_str  = (row.get("Medicines") or "").strip()
+            # Build medicines JSON — accept both new and old column names
+            medicines_str  = (row.get("Medicines Taking") or row.get("Medicines") or "").strip()
             medicines_list = []
             if medicines_str:
                 for part in medicines_str.split(";"):

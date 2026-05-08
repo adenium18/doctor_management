@@ -77,8 +77,18 @@ export default {
               <td style="max-width:150px">
                 <div class="text-truncate" style="max-width:140px" :title="c.prescription">{{ c.prescription }}</div>
               </td>
-              <td>
+              <td class="text-nowrap">
                 <span class="badge bg-success">&#8377; {{ c.charges ?? 150 }}</span>
+                <span class="badge ms-1"
+                  :class="{
+                    'bg-primary':   c.payment_method === 'upi',
+                    'bg-info text-white': c.payment_method === 'netbanking',
+                    'bg-secondary': c.payment_method === 'other',
+                    'bg-success':   !c.payment_method || c.payment_method === 'cash'
+                  }"
+                  style="font-size:10px;opacity:.85">
+                  {{ {cash:'Cash', upi:'UPI', netbanking:'NetBanking', other:'Other'}[c.payment_method] || 'Cash' }}
+                </span>
               </td>
               <td class="text-nowrap">
                 <button class="btn btn-sm btn-outline-primary me-1" @click="$router.push('/casepapers/' + c.casepaper_id)">Edit</button>
