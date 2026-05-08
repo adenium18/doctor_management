@@ -1,4 +1,7 @@
+import HeightWeightInput from "./HeightWeightInput.js";
+
 export default {
+  components: { HeightWeightInput },
   template: `
   <div class="cp-root" style="min-height:100vh;background:#f4f6fb">
 
@@ -348,20 +351,11 @@ export default {
                 <label class="form-label small fw-semibold">RR (br/min)</label>
                 <input v-model="exam.respiratory_rate" class="form-control text-center" placeholder="18" />
               </div>
-              <div class="col-6 col-md-1">
-                <label class="form-label small fw-semibold">Wt (kg)</label>
-                <input v-model.number="exam.weight" type="number" step="0.1" class="form-control text-center" />
-              </div>
-              <div class="col-6 col-md-1">
-                <label class="form-label small fw-semibold">Ht (cm)</label>
-                <input v-model.number="exam.height" type="number" step="0.1" class="form-control text-center" />
-              </div>
             </div>
-            <!-- BMI -->
-            <div v-if="bmi" class="alert py-2 px-3 d-flex align-items-center gap-3 mb-0" :class="bmiAlert" style="font-size:13px;border-radius:8px">
-              <span style="font-size:20px">⚖️</span>
-              <span>BMI <strong>{{ bmi }}</strong> — <strong>{{ bmiCategory }}</strong></span>
-            </div>
+            <!-- Smart Height & Weight -->
+            <height-weight-input
+              :height-cm.sync="exam.height"
+              :weight-kg.sync="exam.weight" />
           </div>
         </div>
         <div class="card shadow-sm border-0 mb-3">

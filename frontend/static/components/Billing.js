@@ -17,13 +17,20 @@ export default {
       </div>
     </div>
 
-    <!-- Filters -->
+    <!-- Filters: month + year -->
     <div class="card mb-4">
       <div class="card-body py-3">
         <div class="row g-2 align-items-end">
           <div class="col-md-3">
-            <label class="form-label small text-muted mb-1">Date</label>
-            <input v-model="filterDate" type="date" class="form-control form-control-sm" />
+            <label class="form-label small text-muted mb-1">Month</label>
+            <select v-model="filterMonth" class="form-select form-select-sm">
+              <option value="">All Months</option>
+              <option v-for="(m, i) in months" :key="i+1" :value="i+1">{{ m }}</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">Year</label>
+            <input v-model.number="filterYear" type="number" class="form-control form-control-sm" placeholder="e.g. 2025" />
           </div>
           <div class="col-auto d-flex gap-2">
             <button @click="fetchBilling" class="btn btn-primary btn-sm">Apply</button>
@@ -101,7 +108,7 @@ export default {
       <div v-for="day in groupedByDay" :key="day.date" class="card mb-3">
         <!-- Day header -->
         <div class="card-header d-flex justify-content-between align-items-center py-2"
-             style="background: #f0f4ff; cursor:pointer"
+             style="background:#f0f4ff;cursor:pointer"
              @click="toggleDay(day.date)">
           <span class="fw-semibold">{{ day.label }}</span>
           <div class="d-flex align-items-center gap-3">
@@ -153,15 +160,17 @@ export default {
   `,
 
   data() {
-    const today = new Date().toISOString().slice(0, 10);
     return {
       token:        localStorage.getItem("auth-token"),
       records:      [],
       total:        0,
       loading:      false,
-      filterDate:   today,
+      filterMonth:  new Date().getMonth() + 1,
+      filterYear:   new Date().getFullYear(),
       viewMode:     "list",
-      expandedDays: {}
+      expandedDays: {},
+      months:       ["January","February","March","April","May","June",
+                     "July","August","September","October","November","December"]
     };
   },
 
@@ -189,7 +198,8 @@ export default {
       this.loading = true;
       try {
         const params = new URLSearchParams();
-        if (this.filterDate) params.append("date", this.filterDate);
+        if (this.filterMonth) params.append("month", this.filterMonth);
+        if (this.filterYear)  params.append("year",  this.filterYear);
 
         const res = await fetch(`/api/billing?${params}`, {
           headers: { "Authentication-Token": this.token }
@@ -199,8 +209,10 @@ export default {
           this.records  = data.records || [];
           this.total    = data.total   || 0;
           this.expandedDays = {};
-          if (this.filterDate) {
-            this.expandedDays[this.filterDate] = true;
+          // Auto-expand today if present in day-wise view
+          const today = new Date().toISOString().slice(0, 10);
+          if (this.records.some(r => r.created_at && r.created_at.startsWith(today))) {
+            this.expandedDays[today] = true;
           }
         }
       } catch (err) {
@@ -211,7 +223,8 @@ export default {
     },
 
     clearFilters() {
-      this.filterDate = "";
+      this.filterMonth = "";
+      this.filterYear  = "";
       this.fetchBilling();
     },
 
