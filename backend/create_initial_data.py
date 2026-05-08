@@ -28,7 +28,7 @@ def _add_missing_columns():
         ("medicines",        text_type),
         ("investigations",   text_type),
         ("amount_paid",      "INTEGER"),
-        ("payment_method",   "VARCHAR(20)"),
+        ("payment_method",   "VARCHAR(20) DEFAULT 'cash'"),
     ]
 
     changed = False
@@ -42,6 +42,9 @@ def _add_missing_columns():
             changed = True
     if changed:
         db.session.commit()
+    # Backfill any NULLs left from pre-default migrations
+    db.session.execute(text("UPDATE casepaper SET payment_method = 'cash' WHERE payment_method IS NULL"))
+    db.session.commit()
 
 # Seed credentials — read from env vars in production, use safe defaults in dev.
 # On first deploy set these in your platform's environment variables dashboard.
