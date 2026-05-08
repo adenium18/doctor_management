@@ -420,9 +420,11 @@ def dashboard_stats():
 @auth_required("token")
 @roles_required("doctor")
 def billing():
-    doctor_id = get_current_doctor_id()  # ✅ ignore frontend param, use server-side
-    month     = request.args.get("month", type=int)
-    year      = request.args.get("year",  type=int)
+    from datetime import date as date_type
+    doctor_id  = get_current_doctor_id()
+    date_str   = request.args.get("date")   # YYYY-MM-DD
+    month      = request.args.get("month", type=int)
+    year       = request.args.get("year",  type=int)
 
     query = db.session.query(
         Casepaper.id.label("casepaper_id"),
@@ -434,10 +436,18 @@ def billing():
     ).join(Patient, Casepaper.patient_id == Patient.id)\
      .filter(Casepaper.doctor_id == doctor_id)
 
-    if year:
-        query = query.filter(db.extract("year",  Casepaper.created_at) == year)
-    if month:
-        query = query.filter(db.extract("month", Casepaper.created_at) == month)
+    if date_str:
+        try:
+            from datetime import datetime
+            d = datetime.strptime(date_str, "%Y-%m-%d").date()
+            query = query.filter(db.func.date(Casepaper.created_at) == d)
+        except ValueError:
+            pass
+    else:
+        if year:
+            query = query.filter(db.extract("year",  Casepaper.created_at) == year)
+        if month:
+            query = query.filter(db.extract("month", Casepaper.created_at) == month)
 
     rows   = query.order_by(Casepaper.created_at.desc()).all()
     result = [{

@@ -22,15 +22,8 @@ export default {
       <div class="card-body py-3">
         <div class="row g-2 align-items-end">
           <div class="col-md-3">
-            <label class="form-label small text-muted mb-1">Month</label>
-            <select v-model="filterMonth" class="form-select form-select-sm">
-              <option value="">All Months</option>
-              <option v-for="(m, i) in months" :key="i+1" :value="i+1">{{ m }}</option>
-            </select>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label small text-muted mb-1">Year</label>
-            <input v-model.number="filterYear" type="number" class="form-control form-control-sm" placeholder="e.g. 2025" />
+            <label class="form-label small text-muted mb-1">Date</label>
+            <input v-model="filterDate" type="date" class="form-control form-control-sm" />
           </div>
           <div class="col-auto d-flex gap-2">
             <button @click="fetchBilling" class="btn btn-primary btn-sm">Apply</button>
@@ -160,17 +153,15 @@ export default {
   `,
 
   data() {
+    const today = new Date().toISOString().slice(0, 10);
     return {
       token:        localStorage.getItem("auth-token"),
       records:      [],
       total:        0,
       loading:      false,
-      filterMonth:  new Date().getMonth() + 1,
-      filterYear:   new Date().getFullYear(),
+      filterDate:   today,
       viewMode:     "list",
-      expandedDays: {},
-      months:       ["January","February","March","April","May","June",
-                     "July","August","September","October","November","December"]
+      expandedDays: {}
     };
   },
 
@@ -198,8 +189,7 @@ export default {
       this.loading = true;
       try {
         const params = new URLSearchParams();
-        if (this.filterMonth) params.append("month", this.filterMonth);
-        if (this.filterYear)  params.append("year",  this.filterYear);
+        if (this.filterDate) params.append("date", this.filterDate);
 
         const res = await fetch(`/api/billing?${params}`, {
           headers: { "Authentication-Token": this.token }
@@ -209,10 +199,8 @@ export default {
           this.records  = data.records || [];
           this.total    = data.total   || 0;
           this.expandedDays = {};
-          // auto-expand today if present
-          const today = new Date().toISOString().slice(0, 10);
-          if (this.records.some(r => r.created_at && r.created_at.startsWith(today))) {
-            this.expandedDays[today] = true;
+          if (this.filterDate) {
+            this.expandedDays[this.filterDate] = true;
           }
         }
       } catch (err) {
@@ -223,8 +211,7 @@ export default {
     },
 
     clearFilters() {
-      this.filterMonth = "";
-      this.filterYear  = "";
+      this.filterDate = "";
       this.fetchBilling();
     },
 
