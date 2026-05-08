@@ -275,9 +275,11 @@ export default {
                 <label class="form-label fw-semibold">Visit Type</label>
                 <select v-model="visit.visit_type" class="form-select">
                   <option value="new">New Visit</option>
+                  <option value="consultation">Consultation</option>
                   <option value="follow_up">Follow-Up</option>
                   <option value="emergency">Emergency</option>
                   <option value="online">Online Consultation</option>
+                  <option value="procedure">Procedure</option>
                 </select>
               </div>
               <div class="col-md-4">
@@ -419,7 +421,7 @@ export default {
                   <label class="form-label small mb-1">Investigation</label>
                   <input v-model="inv.name" class="form-control form-control-sm" placeholder="CBC, X-Ray…" />
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                   <label class="form-label small mb-1">Result / Value</label>
                   <input v-model="inv.result" class="form-control form-control-sm" placeholder="Normal / 110 mg/dL…" />
                 </div>
@@ -432,8 +434,21 @@ export default {
                   <input v-model="inv.notes" class="form-control form-control-sm" />
                 </div>
                 <div class="col-md-1 d-flex align-items-end">
+                  <label class="btn btn-sm btn-outline-secondary w-100 mb-0" :title="inv.image ? 'Change image' : 'Attach report image'">
+                    📷
+                    <input type="file" accept="image/*" class="d-none"
+                      @change="handleInvImage(i, $event)" />
+                  </label>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
                   <button class="btn btn-sm btn-outline-danger w-100" @click="investigations.splice(i,1)">✕</button>
                 </div>
+              </div>
+              <!-- Image preview -->
+              <div v-if="inv.image" class="mt-2 d-flex align-items-center gap-2">
+                <img :src="inv.image" alt="Report" style="max-height:80px;max-width:120px;border-radius:6px;border:1px solid #dee2e6;object-fit:cover;cursor:pointer"
+                     @click="previewImage = inv.image" />
+                <button class="btn btn-sm btn-outline-danger" @click="$set(investigations[i], 'image', null)">✕ Remove</button>
               </div>
             </div>
           </div>
@@ -534,9 +549,40 @@ export default {
                 <label class="form-label fw-semibold">Treatment Notes / Advice</label>
                 <textarea v-model="treatment.treatment_notes" class="form-control" rows="3" placeholder="Diet, rest, activity restrictions, follow-up instructions…"></textarea>
               </div>
+              <!-- Prescription / treatment images -->
+              <div class="col-12">
+                <label class="form-label fw-semibold">Prescription / Treatment Images
+                  <span class="text-muted fw-normal small">(up to 5, max 2 MB each)</span>
+                </label>
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                  <div v-for="(img, idx) in treatment.prescription_images" :key="idx"
+                       class="position-relative" style="display:inline-block">
+                    <img :src="img" alt="Rx image"
+                         style="height:80px;width:80px;object-fit:cover;border-radius:8px;border:1px solid #dee2e6;cursor:pointer"
+                         @click="previewImage = img" />
+                    <button class="btn btn-danger btn-sm position-absolute top-0 end-0 p-0"
+                            style="width:20px;height:20px;font-size:10px;line-height:1;border-radius:50%;transform:translate(40%,-40%)"
+                            @click="treatment.prescription_images.splice(idx,1)">✕</button>
+                  </div>
+                  <label v-if="treatment.prescription_images.length < 5"
+                         class="d-flex align-items-center justify-content-center border rounded"
+                         style="height:80px;width:80px;cursor:pointer;color:#6c757d;background:#f8f9fa;font-size:24px"
+                         title="Add image">
+                    +
+                    <input type="file" accept="image/*" multiple class="d-none"
+                           @change="handleTreatmentImages($event)" />
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Image lightbox -->
+      <div v-if="previewImage" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+           style="background:rgba(0,0,0,.75);z-index:2000" @click="previewImage = null">
+        <img :src="previewImage" alt="Preview" style="max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 4px 32px rgba(0,0,0,.5)" />
       </div>
 
       <!-- ─── STEP 6 · PRESCRIPTION ─────────────────────────── -->
@@ -735,8 +781,33 @@ export default {
                 </div>
               </div>
               <div class="col-md-4">
+                <label class="form-label fw-semibold">Payment Method</label>
+                <div class="d-flex gap-2 mt-1">
+                  <button v-for="pm in paymentMethods" :key="pm.value"
+                    class="btn btn-sm flex-grow-1 fw-semibold"
+                    :class="billing.payment_method === pm.value ? pm.btnClass : 'btn-outline-secondary'"
+                    @click="billing.payment_method = pm.value">
+                    {{ pm.icon }} {{ pm.label }}
+                  </button>
+                </div>
+              </div>
+              <div class="col-md-4">
                 <label class="form-label fw-semibold">Next Follow-Up</label>
                 <input v-model="billing.next_followup" type="date" class="form-control" :min="today" />
+              </div>
+              <!-- Partial payment amount — only shown when Partial is selected -->
+              <div v-if="billing.payment_status === 'partial'" class="col-md-4">
+                <label class="form-label fw-semibold">Amount Paid (₹)</label>
+                <div class="input-group">
+                  <span class="input-group-text">₹</span>
+                  <input v-model.number="billing.amount_paid"
+                    type="number" min="0" :max="billing.charges"
+                    class="form-control"
+                    placeholder="Amount received so far" />
+                </div>
+                <div class="form-text text-danger fw-semibold" v-if="billing.amount_paid !== null && billing.amount_paid >= 0">
+                  ₹ {{ (billing.charges || 0) - (billing.amount_paid || 0) }} still unpaid
+                </div>
               </div>
               <div class="col-12">
                 <label class="form-label fw-semibold">Internal Notes</label>
@@ -751,6 +822,22 @@ export default {
                 <span class="text-muted">Consultation Fee</span>
                 <span class="fw-bold">₹ {{ billing.charges || 0 }}</span>
               </div>
+              <template v-if="billing.payment_status === 'partial'">
+                <div class="d-flex justify-content-between py-2 border-bottom" style="font-size:14px">
+                  <span class="text-muted">Amount Paid</span>
+                  <span class="fw-bold text-success">₹ {{ billing.amount_paid || 0 }}</span>
+                </div>
+                <div class="d-flex justify-content-between py-2 border-bottom" style="font-size:14px">
+                  <span class="text-muted">Amount Unpaid</span>
+                  <span class="fw-bold text-danger">₹ {{ (billing.charges || 0) - (billing.amount_paid || 0) }}</span>
+                </div>
+              </template>
+              <div class="d-flex justify-content-between py-2 border-bottom" style="font-size:14px">
+                <span class="text-muted">Payment Method</span>
+                <span class="text-capitalize fw-semibold">
+                  {{ {cash:'💵 Cash', upi:'📱 UPI', netbanking:'🏦 NetBanking', other:'🔖 Other'}[billing.payment_method] || '💵 Cash' }}
+                </span>
+              </div>
               <div class="d-flex justify-content-between py-2 border-bottom" style="font-size:14px">
                 <span class="text-muted">Visit Type</span>
                 <span class="text-capitalize">{{ (visit.visit_type || 'consultation').replace('_', ' ') }}</span>
@@ -763,6 +850,10 @@ export default {
                 <span class="badge px-3 py-2 fs-6"
                   :class="billing.payment_status==='paid' ? 'bg-success' : billing.payment_status==='partial' ? 'bg-warning text-dark' : 'bg-danger'">
                   {{ billing.payment_status==='paid' ? '✅ Fully Paid' : billing.payment_status==='partial' ? '⚠️ Partial Payment' : '❌ Unpaid' }}
+                </span>
+                <span v-if="billing.payment_status === 'partial' && billing.amount_paid !== null"
+                      class="ms-2 badge bg-danger px-3 py-2 fs-6">
+                  ₹ {{ (billing.charges || 0) - (billing.amount_paid || 0) }} pending
                 </span>
               </div>
             </div>
@@ -946,11 +1037,12 @@ export default {
       doctorName:  localStorage.getItem("full_name") || "Doctor",
       doctorDegree:"",
       today:       now.toISOString().split("T")[0],
-      saving:      false,
-      saveError:   null,
-      activeStep:  0,
-      showReview:  false,
+      saving:       false,
+      saveError:    null,
+      activeStep:   0,
+      showReview:   false,
       autosaveLabel: "",
+      previewImage: null,
 
       // Patient autocomplete
       patientQuery:    "",
@@ -1001,11 +1093,12 @@ export default {
 
       treatment: {
         injection_given: "", procedure_done: "", dressing: "",
-        nebulization: "", physiotherapy: "", surgery_notes: "", treatment_notes: ""
+        nebulization: "", physiotherapy: "", surgery_notes: "", treatment_notes: "",
+        prescription_images: []
       },
 
       billing: {
-        charges: 150, payment_status: "paid", next_followup: "", notes: ""
+        charges: 150, amount_paid: null, payment_status: "paid", payment_method: "cash", next_followup: "", notes: ""
       },
 
       steps: [
@@ -1030,6 +1123,12 @@ export default {
         { value: "paid",    label: "Paid",    icon: "✅", btnClass: "btn-success" },
         { value: "partial", label: "Partial", icon: "⚠️", btnClass: "btn-warning" },
         { value: "unpaid",  label: "Unpaid",  icon: "❌", btnClass: "btn-danger"  }
+      ],
+      paymentMethods: [
+        { value: "cash",       label: "Cash",       icon: "💵", btnClass: "btn-success"   },
+        { value: "upi",        label: "UPI",        icon: "📱", btnClass: "btn-primary"   },
+        { value: "netbanking", label: "NetBanking", icon: "🏦", btnClass: "btn-info text-white" },
+        { value: "other",      label: "Other",      icon: "🔖", btnClass: "btn-secondary" }
       ],
 
       bloodGroups: ["A+", "A−", "B+", "B−", "O+", "O−", "AB+", "AB−"],
@@ -1192,7 +1291,11 @@ export default {
     validateStep(i) {
       switch (i) {
         case 0:
-          this.validate("full_name");
+          if (!this.showPatientForm) {
+            this.errors.full_name = "Please select or create a patient to continue.";
+          } else {
+            this.validate("full_name");
+          }
           this.validate("phone");
           return !this.errors.full_name && !this.errors.phone;
         case 1:
@@ -1207,7 +1310,11 @@ export default {
     },
 
     validateAll() {
-      this.validate("full_name");
+      if (!this.showPatientForm) {
+        this.errors.full_name = "Please select or create a patient before saving.";
+      } else {
+        this.validate("full_name");
+      }
       this.validate("phone");
       this.validate("charges");
       return !this.errors.full_name && !this.errors.phone && !this.errors.charges;
@@ -1299,7 +1406,9 @@ export default {
           diagnosis:       diagnosisSummary,
           prescription:    prescriptionSummary,
           charges:         this.billing.charges,
+          amount_paid:     this.billing.payment_status === "partial" ? (this.billing.amount_paid ?? null) : null,
           payment_status:  this.billing.payment_status,
+          payment_method:  this.billing.payment_method || "cash",
           notes:           this.billing.notes,
           next_followup:   this.billing.next_followup || null,
           visit_info:       { ...this.visit },
@@ -1420,11 +1529,39 @@ export default {
 
     // ─── Investigations ────────────────────────────────────────
     addInvestigation() {
-      this.investigations.push({ name: "", result: "", date: "", notes: "" });
+      this.investigations.push({ name: "", result: "", date: "", notes: "", image: null });
     },
     addQuickInv(name) {
       if (this.investigations.some(i => i.name === name)) return;
-      this.investigations.push({ name, result: "", date: "", notes: "" });
+      this.investigations.push({ name, result: "", date: "", notes: "", image: null });
+    },
+
+    handleInvImage(idx, evt) {
+      const file = evt.target.files[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) {
+        this.$toast && this.$toast("Image must be under 2 MB.", "warning");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = e => this.$set(this.investigations[idx], "image", e.target.result);
+      reader.readAsDataURL(file);
+    },
+
+    handleTreatmentImages(evt) {
+      const files  = Array.from(evt.target.files);
+      const slots  = 5 - (this.treatment.prescription_images || []).length;
+      const toLoad = files.slice(0, slots);
+      toLoad.forEach(file => {
+        if (file.size > 2 * 1024 * 1024) {
+          this.$toast && this.$toast(`${file.name} skipped — must be under 2 MB.`, "warning");
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = e => this.treatment.prescription_images.push(e.target.result);
+        reader.readAsDataURL(file);
+      });
+      evt.target.value = "";
     },
 
     // ─── Medicines ─────────────────────────────────────────────
@@ -1457,10 +1594,13 @@ export default {
     // ─── Autosave ──────────────────────────────────────────────
     autosave() {
       if (this.isEdit) return;
+      // Strip image blobs before storing in localStorage to avoid quota issues
+      const treatmentNoImgs = { ...this.treatment, prescription_images: [] };
+      const invsNoImgs      = this.investigations.map(inv => ({ ...inv, image: null }));
       const draft = {
         patient: this.patient, visit: this.visit, exam: this.exam,
-        diag: this.diag, treatment: this.treatment, billing: this.billing,
-        medicines: this.medicines, investigations: this.investigations,
+        diag: this.diag, treatment: treatmentNoImgs, billing: this.billing,
+        medicines: this.medicines, investigations: invsNoImgs,
         activeStep: this.activeStep, showPatientForm: this.showPatientForm,
         patientQuery: this.patientQuery
       };
@@ -1555,13 +1695,14 @@ export default {
 
         const td = d.treatment_detail || {};
         this.treatment = {
-          injection_given: td.injection_given || "",
-          procedure_done:  td.procedure_done  || "",
-          dressing:        td.dressing        || "",
-          nebulization:    td.nebulization    || "",
-          physiotherapy:   td.physiotherapy   || "",
-          surgery_notes:   td.surgery_notes   || "",
-          treatment_notes: td.treatment_notes || ""
+          injection_given:     td.injection_given     || "",
+          procedure_done:      td.procedure_done      || "",
+          dressing:            td.dressing            || "",
+          nebulization:        td.nebulization        || "",
+          physiotherapy:       td.physiotherapy       || "",
+          surgery_notes:       td.surgery_notes       || "",
+          treatment_notes:     td.treatment_notes     || "",
+          prescription_images: Array.isArray(td.prescription_images) ? td.prescription_images : []
         };
 
         this.medicines = Array.isArray(d.medicines)
@@ -1573,10 +1714,12 @@ export default {
         this.investigations = Array.isArray(d.investigations) ? d.investigations : [];
 
         this.billing = {
-          charges:        d.charges        ?? 150,
-          payment_status: d.payment_status || "paid",
-          next_followup:  d.next_followup  || "",
-          notes:          d.notes          || ""
+          charges:        d.charges         ?? 150,
+          amount_paid:    d.amount_paid     ?? null,
+          payment_status: d.payment_status  || "paid",
+          payment_method: d.payment_method  || "cash",
+          next_followup:  d.next_followup   || "",
+          notes:          d.notes           || ""
         };
       } catch (err) {
         console.error("Failed to load casepaper:", err);
@@ -1597,8 +1740,8 @@ export default {
       this.investigations = [];
       this.medicines      = [];
       this.diag        = { provisional_diagnosis: "", final_diagnosis: "", icd_code: "", severity: "", notes: "" };
-      this.treatment   = { injection_given: "", procedure_done: "", dressing: "", nebulization: "", physiotherapy: "", surgery_notes: "", treatment_notes: "" };
-      this.billing     = { charges: 150, payment_status: "paid", next_followup: "", notes: "" };
+      this.treatment   = { injection_given: "", procedure_done: "", dressing: "", nebulization: "", physiotherapy: "", surgery_notes: "", treatment_notes: "", prescription_images: [] };
+      this.billing     = { charges: 150, amount_paid: null, payment_status: "paid", payment_method: "cash", next_followup: "", notes: "" };
       this.errors      = { full_name: "", phone: "", chief_complaints: "", diagnosis: "", charges: "" };
       this.activeStep  = 0;
       this.saveError   = null;

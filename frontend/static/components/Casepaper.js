@@ -105,65 +105,6 @@ export default {
       <p class="text-muted small">Try adjusting the filters or create a new casepaper from Home.</p>
     </div>
 
-    <!-- Edit Modal -->
-    <div class="modal fade" id="editCasepaperModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Edit Casepaper
-              <small v-if="editCasepaper.patient_name" class="text-muted fw-normal ms-2">— {{ editCasepaper.patient_name }}</small>
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <form @submit.prevent="submitCasepaperEdit">
-            <div class="modal-body">
-              <div class="mb-3">
-                <label class="form-label">Symptoms</label>
-                <input v-model="editCasepaper.symptoms" class="form-control" required />
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Diagnosis</label>
-                <input v-model="editCasepaper.diagnosis" class="form-control" required />
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Prescription</label>
-                <textarea v-model="editCasepaper.prescription" class="form-control" rows="3"></textarea>
-              </div>
-              <div class="row g-3">
-                <div class="col-md-4">
-                  <label class="form-label">Charges (&#8377;)</label>
-                  <input v-model.number="editCasepaper.charges" type="number" class="form-control" min="0" required />
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Visit Type</label>
-                  <select v-model="editCasepaper.visit_type" class="form-select">
-                    <option value="consultation">Consultation</option>
-                    <option value="follow_up">Follow-Up</option>
-                    <option value="procedure">Procedure</option>
-                    <option value="emergency">Emergency</option>
-                  </select>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Payment Status</label>
-                  <select v-model="editCasepaper.payment_status" class="form-select">
-                    <option value="paid">Paid</option>
-                    <option value="unpaid">Unpaid</option>
-                    <option value="partial">Partial</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-              <button type="submit" class="btn btn-primary btn-sm" :disabled="saving">
-                {{ saving ? 'Saving...' : 'Update' }}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-
     <!-- Delete Modal -->
     <div class="modal fade" id="deleteCasepaperModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-sm">
@@ -190,10 +131,8 @@ export default {
       token:               localStorage.getItem("auth-token"),
       casepapers:          [],
       loading:             true,
-      saving:              false,
       currentPage:         1,
       perPage:             20,
-      editCasepaper:       { id: null, patient_name: "", symptoms: "", diagnosis: "", prescription: "", charges: 150, visit_type: "consultation", payment_status: "paid" },
       casepaperToDeleteId: null,
       filters:             { query: "", date: "", month: "", year: "" }
     };
@@ -231,47 +170,6 @@ export default {
         console.error("Error fetching casepapers:", err);
       } finally {
         this.loading = false;
-      }
-    },
-
-    openEditModal(c) {
-      this.editCasepaper = {
-        id:             c.casepaper_id,
-        patient_name:   c.full_name      || "",
-        symptoms:       c.symptoms       || "",
-        diagnosis:      c.diagnosis      || "",
-        prescription:   c.prescription   || "",
-        charges:        c.charges        ?? 150,
-        visit_type:     c.visit_type     || "consultation",
-        payment_status: c.payment_status || "paid"
-      };
-      bootstrap.Modal.getOrCreateInstance(
-        document.getElementById("editCasepaperModal")
-      ).show();
-    },
-
-    async submitCasepaperEdit() {
-      this.saving = true;
-      try {
-        const res = await fetch(`/api/casepaper/${this.editCasepaper.id}`, {
-          method:  "PUT",
-          headers: { "Content-Type": "application/json", "Authentication-Token": this.token },
-          body:    JSON.stringify(this.editCasepaper)
-        });
-        if (res.ok) {
-          bootstrap.Modal.getOrCreateInstance(
-            document.getElementById("editCasepaperModal")
-          ).hide();
-          this.$toast("Casepaper updated successfully!");
-          setTimeout(() => this.fetchCasepapers(), 300);
-        } else {
-          this.$toast("Failed to update casepaper.", "danger");
-        }
-      } catch (err) {
-        console.error("Edit error:", err);
-        this.$toast("Network error. Please try again.", "danger");
-      } finally {
-        this.saving = false;
       }
     },
 

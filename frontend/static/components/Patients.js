@@ -112,13 +112,30 @@ export default {
                   </select>
                 </div>
                 <div class="col">
+                  <label class="form-label">Blood Group</label>
+                  <select v-model="editForm.blood_group" class="form-select">
+                    <option value="">—</option>
+                    <option v-for="bg in ['A+','A−','B+','B−','O+','O−','AB+','AB−']" :key="bg">{{ bg }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col">
                   <label class="form-label">Weight (kg)</label>
-                  <input v-model="editForm.weight" type="number" class="form-control" />
+                  <input v-model="editForm.weight" type="number" step="0.1" class="form-control" />
+                </div>
+                <div class="col">
+                  <label class="form-label">Height (cm)</label>
+                  <input v-model="editForm.height" type="number" step="0.1" class="form-control" />
                 </div>
               </div>
               <div class="mb-3">
                 <label class="form-label">Phone</label>
                 <input v-model="editForm.phone" class="form-control" />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Emergency Contact</label>
+                <input v-model="editForm.emergency_contact" class="form-control" placeholder="Name & phone" />
               </div>
               <div class="mb-3">
                 <label class="form-label">Address</label>

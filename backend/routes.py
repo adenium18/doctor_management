@@ -66,15 +66,18 @@ def manage_patients():
         patients = Patient.query.filter(Patient.id.in_(patient_ids)).all()
 
         return jsonify([{
-            "id":              p.id,
-            "full_name":       p.full_name,
-            "address":         p.address,
-            "pincode":         p.pincode,
-            "age":             p.age,
-            "weight":          p.weight,
-            "phone":           p.phone,
-            "sex":             p.sex,
-            "dob":             p.dob,
+            "id":               p.id,
+            "full_name":        p.full_name,
+            "address":          p.address,
+            "pincode":          p.pincode,
+            "age":              p.age,
+            "weight":           p.weight,
+            "height":           getattr(p, "height", None),
+            "blood_group":      getattr(p, "blood_group", ""),
+            "emergency_contact":getattr(p, "emergency_contact", ""),
+            "phone":            p.phone,
+            "sex":              p.sex,
+            "dob":              p.dob,
         } for p in patients]), 200
 
     elif request.method == "POST":
@@ -130,15 +133,18 @@ def update_patient(id):
 
     if request.method == "GET":
         return jsonify({
-            "id":       patient.id,
-            "full_name":patient.full_name,
-            "address":  patient.address,
-            "pincode":  patient.pincode,
-            "weight":   patient.weight,
-            "dob":      patient.dob,
-            "age":      patient.age,
-            "phone":    patient.phone,
-            "sex":      patient.sex,
+            "id":               patient.id,
+            "full_name":        patient.full_name,
+            "address":          patient.address,
+            "pincode":          patient.pincode,
+            "weight":           patient.weight,
+            "height":           getattr(patient, "height", None),
+            "blood_group":      getattr(patient, "blood_group", ""),
+            "emergency_contact":getattr(patient, "emergency_contact", ""),
+            "dob":              patient.dob,
+            "age":              patient.age,
+            "phone":            patient.phone,
+            "sex":              patient.sex,
         })
 
     elif request.method == "PUT":
@@ -163,6 +169,12 @@ def update_patient(id):
         patient.weight    = data.get("weight",    patient.weight)
         patient.phone     = data.get("phone",     patient.phone)
         patient.sex       = data.get("sex",       patient.sex)
+        if "height" in data:
+            patient.height = data["height"]
+        if "blood_group" in data:
+            patient.blood_group = data["blood_group"]
+        if "emergency_contact" in data:
+            patient.emergency_contact = data["emergency_contact"]
         db.session.commit()
         return jsonify({"message": "Patient updated"}), 200
 
@@ -430,6 +442,7 @@ def billing():
         Casepaper.id.label("casepaper_id"),
         Casepaper.created_at,
         Casepaper.charges,
+        Casepaper.payment_method,
         Patient.full_name,
         Patient.phone,
         Patient.pincode
@@ -451,12 +464,13 @@ def billing():
 
     rows   = query.order_by(Casepaper.created_at.desc()).all()
     result = [{
-        "casepaper_id": r.casepaper_id,
-        "created_at":   r.created_at.isoformat() if r.created_at else None,
-        "charges":      r.charges or 0,
-        "full_name":    r.full_name,
-        "phone":        r.phone,
-        "pincode":      r.pincode
+        "casepaper_id":   r.casepaper_id,
+        "created_at":     r.created_at.isoformat() if r.created_at else None,
+        "charges":        r.charges or 0,
+        "full_name":      r.full_name,
+        "phone":          r.phone,
+        "pincode":        r.pincode,
+        "payment_method": getattr(r, "payment_method", None) or "cash",
     } for r in rows]
 
     return jsonify({"records": result, "total": sum(r["charges"] for r in result)}), 200
@@ -536,12 +550,18 @@ def report_monthly_earnings():
     year      = request.args.get("year",  type=int)
 
     query = db.session.query(
-        Casepaper.id,
         Casepaper.created_at,
         Casepaper.charges,
         Casepaper.symptoms,
-        Casepaper.diagnosis,
+        Casepaper.visit_info,
+        Casepaper.medicines,
+        Casepaper.treatment_detail,
+        Casepaper.payment_method,
         Patient.full_name,
+        Patient.address,
+        Patient.dob,
+        Patient.age,
+        Patient.sex,
         Patient.phone
     ).join(Patient, Casepaper.patient_id == Patient.id)\
      .filter(Casepaper.doctor_id == doctor_id)
@@ -554,15 +574,72 @@ def report_monthly_earnings():
     rows   = query.order_by(Casepaper.created_at.desc()).all()
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["#", "Date", "Patient", "Phone", "Symptoms", "Diagnosis", "Charges (₹)"])
-    total = 0
-    for i, r in enumerate(rows, 1):
-        writer.writerow([i, r.created_at, r.full_name, r.phone, r.symptoms, r.diagnosis, r.charges or 0])
-        total += r.charges or 0
-    writer.writerow([])
-    writer.writerow(["", "", "", "", "", "TOTAL", total])
-    output.seek(0)
+    writer.writerow([
+        "Date", "Patient Name", "Address", "DOB", "Age", "Sex", "Contact",
+        "Complaints", "History", "Medicines", "Treatment Taken",
+        "Fees Collected", "Cash", "UPI", "NetBanking", "Other"
+    ])
 
+    for r in rows:
+        vi = {}
+        try:
+            if r.visit_info:
+                vi = json.loads(r.visit_info)
+        except Exception:
+            pass
+
+        meds_list = []
+        try:
+            if r.medicines:
+                for m in json.loads(r.medicines):
+                    name = m.get("name", "").strip()
+                    if name:
+                        parts = [name]
+                        if m.get("strength"):  parts.append(m["strength"])
+                        if m.get("frequency"): parts.append(m["frequency"])
+                        meds_list.append(" ".join(parts))
+        except Exception:
+            pass
+
+        treatment_parts = []
+        try:
+            if r.treatment_detail:
+                td = json.loads(r.treatment_detail)
+                for k in ("injection_given", "procedure_done", "dressing",
+                          "nebulization", "physiotherapy", "surgery_notes", "treatment_notes"):
+                    if td.get(k):
+                        treatment_parts.append(td[k])
+        except Exception:
+            pass
+
+        pm      = (r.payment_method or "cash").lower()
+        charges = r.charges or 0
+        cash_amt = charges if pm == "cash"       else 0
+        upi_amt  = charges if pm == "upi"        else 0
+        nb_amt   = charges if pm == "netbanking" else 0
+        other_amt = charges if pm not in ("cash", "upi", "netbanking") else 0
+
+        date_str = r.created_at.strftime("%Y-%m-%d") if r.created_at else ""
+        writer.writerow([
+            date_str,
+            r.full_name,
+            r.address or "",
+            r.dob or "",
+            r.age or "",
+            r.sex or "",
+            r.phone or "",
+            vi.get("chief_complaints", r.symptoms or ""),
+            vi.get("past_medical_history", vi.get("hpi", "")),
+            "; ".join(meds_list),
+            "; ".join(filter(None, treatment_parts)),
+            charges,
+            cash_amt,
+            upi_amt,
+            nb_amt,
+            other_amt
+        ])
+
+    output.seek(0)
     return Response(
         output.getvalue(),
         mimetype="text/csv",
@@ -984,9 +1061,11 @@ def _cp_to_dict(cp):
         "symptoms":      cp.symptoms,
         "diagnosis":     cp.diagnosis,
         "prescription":  cp.prescription,
-        "charges":       cp.charges or 150,
-        "visit_type":    cp.visit_type     or "consultation",
-        "payment_status":cp.payment_status or "paid",
+        "charges":        cp.charges or 150,
+        "amount_paid":    cp.amount_paid,
+        "visit_type":     cp.visit_type     or "consultation",
+        "payment_status": cp.payment_status or "paid",
+        "payment_method": getattr(cp, "payment_method", None) or "cash",
         "notes":         cp.notes          or "",
         "next_followup": cp.next_followup  or "",
         # Extended JSON blobs
@@ -1034,9 +1113,11 @@ def update_casepaper(id):
     casepaper.symptoms       = data.get("symptoms",       casepaper.symptoms)
     casepaper.diagnosis      = data.get("diagnosis",      casepaper.diagnosis)
     casepaper.prescription   = data.get("prescription",   casepaper.prescription)
-    casepaper.charges        = data.get("charges",        casepaper.charges)
-    casepaper.visit_type     = data.get("visit_type",     casepaper.visit_type     or "consultation")
-    casepaper.payment_status = data.get("payment_status", casepaper.payment_status or "paid")
+    casepaper.charges        = data.get("charges",         casepaper.charges)
+    casepaper.amount_paid    = data.get("amount_paid",     casepaper.amount_paid)
+    casepaper.visit_type     = data.get("visit_type",      casepaper.visit_type     or "consultation")
+    casepaper.payment_status = data.get("payment_status",  casepaper.payment_status or "paid")
+    casepaper.payment_method = data.get("payment_method",  getattr(casepaper, "payment_method", None) or "cash")
     casepaper.notes          = data.get("notes",          casepaper.notes          or "")
     casepaper.next_followup  = data.get("next_followup",  casepaper.next_followup)
 
@@ -1070,15 +1151,17 @@ def create_casepaper():
         return jsonify({"error": "Invalid patient_id"}), 404
 
     cp = Casepaper(
-        patient_id   = patient.id,
-        doctor_id    = doctor_id,
-        symptoms     = data.get("symptoms",     ""),
-        diagnosis    = data.get("diagnosis",    ""),
-        prescription = data.get("prescription", ""),
-        charges      = data.get("charges",      150),
+        patient_id     = patient.id,
+        doctor_id      = doctor_id,
+        symptoms       = data.get("symptoms",      ""),
+        diagnosis      = data.get("diagnosis",     ""),
+        prescription   = data.get("prescription",  ""),
+        charges        = data.get("charges",       150),
+        amount_paid    = data.get("amount_paid",   None),
     )
-    cp.visit_type     = data.get("visit_type",     "consultation")
-    cp.payment_status = data.get("payment_status", "paid")
+    cp.visit_type      = data.get("visit_type",     "consultation")
+    cp.payment_status  = data.get("payment_status", "paid")
+    cp.payment_method  = data.get("payment_method", "cash")
     cp.notes          = data.get("notes",          "")
     cp.next_followup  = data.get("next_followup",  None)
 
@@ -1423,20 +1506,30 @@ def finance_kpis():
     repeat_this_month = len(new_patient_ids & old_patient_ids)
     new_this_month    = len(new_patient_ids - old_patient_ids)
 
+    # Payment method breakdown for this month
+    pm_breakdown = {"cash": 0, "upi": 0, "netbanking": 0, "other": 0}
+    for c in month_cps:
+        pm = (getattr(c, "payment_method", None) or "cash").lower()
+        if pm in pm_breakdown:
+            pm_breakdown[pm] += (c.charges or 0)
+        else:
+            pm_breakdown["other"] += (c.charges or 0)
+
     return jsonify({
-        "today_revenue":       today_revenue,
-        "today_visits":        len(today_cps),
-        "month_revenue":       month_revenue,
-        "month_visits":        len(month_cps),
-        "last_month_revenue":  last_month_revenue,
-        "revenue_growth":      revenue_growth,
-        "month_expenses":      month_expenses,
-        "net_profit":          month_revenue - month_expenses,
-        "unpaid_revenue":      unpaid_revenue,
-        "total_patients":      total_patients,
-        "new_this_month":      new_this_month,
-        "repeat_this_month":   repeat_this_month,
-        "month":               now.strftime("%B %Y"),
+        "today_revenue":        today_revenue,
+        "today_visits":         len(today_cps),
+        "month_revenue":        month_revenue,
+        "month_visits":         len(month_cps),
+        "last_month_revenue":   last_month_revenue,
+        "revenue_growth":       revenue_growth,
+        "month_expenses":       month_expenses,
+        "net_profit":           month_revenue - month_expenses,
+        "unpaid_revenue":       unpaid_revenue,
+        "total_patients":       total_patients,
+        "new_this_month":       new_this_month,
+        "repeat_this_month":    repeat_this_month,
+        "month":                now.strftime("%B %Y"),
+        "payment_method_breakdown": pm_breakdown,
     }), 200
 
 
@@ -1616,12 +1709,20 @@ def upload_casepapers():
         errors  = []
 
         for i, row in enumerate(rows, 2):
-            patient_name = (row.get("Patient") or "").strip()
-            # Skip blank rows and the TOTAL summary row
-            if not patient_name or patient_name.upper() == "TOTAL":
+            patient_name = (row.get("Patient Name") or row.get("Patient") or "").strip()
+            # Skip blank rows
+            if not patient_name or patient_name.upper() in ("TOTAL", "#"):
                 continue
 
-            phone = (row.get("Phone") or "").strip() or None
+            phone   = (row.get("Contact") or row.get("Phone") or "").strip() or None
+            address = (row.get("Address") or "").strip() or None
+            dob     = (row.get("DOB") or "").strip() or None
+            sex     = (row.get("Sex") or "").strip() or None
+            age_str = (row.get("Age") or "").strip()
+            try:
+                age = int(float(age_str)) if age_str else None
+            except Exception:
+                age = None
 
             # Find existing patient by phone first, then by name
             patient = None
@@ -1632,7 +1733,8 @@ def upload_casepapers():
                     Patient.full_name.ilike(patient_name)
                 ).first()
             if not patient:
-                patient = Patient(full_name=patient_name, phone=phone)
+                patient = Patient(full_name=patient_name, phone=phone,
+                                  address=address, dob=dob, sex=sex, age=age)
                 db.session.add(patient)
                 db.session.flush()
 
@@ -1646,22 +1748,61 @@ def upload_casepapers():
                 except Exception:
                     pass
 
-            # Parse charges — strip commas and ₹ signs
-            raw_charges = (row.get("Charges (₹)") or row.get("Charges") or "150")
+            # Parse fees — support both new and old column names
+            raw_charges = (row.get("Fees Collected") or row.get("Charges (₹)") or row.get("Charges") or "150")
             raw_charges = str(raw_charges).replace(",", "").replace("₹", "").strip()
             try:
-                charges = int(float(raw_charges))
+                charges = int(float(raw_charges)) if raw_charges else 150
             except Exception:
                 charges = 150
 
+            # Determine payment method from per-method columns (UPI/NetBanking/Other/Cash)
+            payment_method = "cash"
+            for pm_col, pm_key in [("UPI", "upi"), ("NetBanking", "netbanking"), ("Other", "other"), ("Cash", "cash")]:
+                val = str(row.get(pm_col) or "0").replace(",", "").replace("₹", "").strip()
+                try:
+                    if float(val) > 0:
+                        payment_method = pm_key
+                        break
+                except Exception:
+                    pass
+
+            # Build visit_info JSON
+            complaints = (row.get("Complaints") or "").strip()
+            history    = (row.get("History") or "").strip()
+            vi_dict = {}
+            if complaints: vi_dict["chief_complaints"] = complaints
+            if history:    vi_dict["past_medical_history"] = history
+
+            # Build treatment_detail JSON
+            treatment_str = (row.get("Treatment Taken") or "").strip()
+            td_dict = {"treatment_notes": treatment_str} if treatment_str else {}
+
+            # Build medicines JSON
+            medicines_str  = (row.get("Medicines") or "").strip()
+            medicines_list = []
+            if medicines_str:
+                for part in medicines_str.split(";"):
+                    part = part.strip()
+                    if part:
+                        medicines_list.append({
+                            "name": part, "strength": "", "frequency": "",
+                            "timing": ["", "", "", ""], "duration": "", "instructions": ""
+                        })
+
             try:
                 cp = Casepaper(
-                    patient_id   = patient.id,
-                    doctor_id    = doctor_id,
-                    symptoms     = (row.get("Symptoms") or "").strip(),
-                    diagnosis    = (row.get("Diagnosis") or "").strip(),
-                    prescription = "",
-                    charges      = charges,
+                    patient_id       = patient.id,
+                    doctor_id        = doctor_id,
+                    symptoms         = complaints or (row.get("Symptoms") or "").strip(),
+                    diagnosis        = (row.get("Diagnosis") or "").strip(),
+                    prescription     = "",
+                    charges          = charges,
+                    payment_method   = payment_method,
+                    payment_status   = "paid",
+                    visit_info       = json.dumps(vi_dict)       if vi_dict       else None,
+                    treatment_detail = json.dumps(td_dict)       if td_dict       else None,
+                    medicines        = json.dumps(medicines_list) if medicines_list else None,
                 )
                 if created_at:
                     cp.created_at = created_at

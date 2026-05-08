@@ -206,6 +206,21 @@ export default {
                 </div>
                 <div class="text-muted small mt-1">Profit margin: {{ profitMarginPct }}%</div>
               </div>
+              <!-- Payment method breakdown -->
+              <div v-if="kpis.payment_method_breakdown" class="mt-3">
+                <div class="text-muted small fw-semibold mb-2" style="letter-spacing:.5px">PAYMENT METHODS</div>
+                <div v-for="(amt, method) in kpis.payment_method_breakdown" :key="method"
+                     class="d-flex justify-content-between align-items-center mb-1" style="font-size:13px">
+                  <span>
+                    <span v-if="method==='cash'">💵</span>
+                    <span v-else-if="method==='upi'">📱</span>
+                    <span v-else-if="method==='netbanking'">🏦</span>
+                    <span v-else>🔖</span>
+                    <span class="text-capitalize ms-1">{{ method }}</span>
+                  </span>
+                  <span class="fw-semibold">&#8377; {{ fmt(amt) }}</span>
+                </div>
+              </div>
               <div class="mt-3 d-grid">
                 <router-link to="/profit-loss" class="btn btn-primary btn-sm">View Full P&amp;L Report</router-link>
               </div>

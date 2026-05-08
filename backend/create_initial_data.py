@@ -27,6 +27,8 @@ def _add_missing_columns():
         ("treatment_detail", text_type),
         ("medicines",        text_type),
         ("investigations",   text_type),
+        ("amount_paid",      "INTEGER"),
+        ("payment_method",   "VARCHAR(20)"),
     ]
 
     changed = False
