@@ -476,10 +476,12 @@ def expenses():
         year  = request.args.get("year",  type=int)
 
         q = Expense.query.filter_by(doctor_id=doctor_id)
-        if year:
-            q = q.filter(db.extract("year",  Expense.date) == year)
-        if month:
-            q = q.filter(db.extract("month", Expense.date) == month)
+        if year and month:
+            q = q.filter(Expense.date.like(f"{year}-{month:02d}-%"))
+        elif year:
+            q = q.filter(Expense.date.like(f"{year}-%"))
+        elif month:
+            q = q.filter(Expense.date.like(f"%-{month:02d}-%"))
 
         items = q.order_by(Expense.date.desc()).all()
         return jsonify([{
@@ -641,7 +643,7 @@ def report_gst_summary():
 
     exps = Expense.query.filter(
         Expense.doctor_id == doctor_id,
-        db.extract("year", Expense.date) == year
+        Expense.date.like(f"{year}-%")
     ).all()
 
     cats = {}
